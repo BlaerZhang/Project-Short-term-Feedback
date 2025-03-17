@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# We are making a game project using Unity Engine and mainly C# programming language.
+# For UI and 3D Text, always use TextMeshPro.
+# For TextMeshPro components, always use base class TMP_Text.
+# Always Generate UI Text in English.
+
+- You can @ files here
+- You can use markdown but dont have to
