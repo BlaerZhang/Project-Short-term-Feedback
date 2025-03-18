@@ -23,6 +23,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private GameObject arcIndicator;   // 显示可移动范围的圆弧指示器
     [SerializeField] private Material validPathMaterial;  // 有效路径材质
     [SerializeField] private Material invalidPathMaterial; // 无效路径材质
+    [SerializeField] private float pathWidth = 0.1f;    // 路径宽度
+    [SerializeField] private float directionLineWidth = 0.05f; // 方向指示线宽度
 
     [Header("动画设置")]
     [SerializeField] private Ease moveEase = Ease.InOutSine;  // 移动缓动函数
@@ -54,11 +56,13 @@ public class PlayerController : MonoBehaviour
             if (pathPreview == null)
             {
                 pathPreview = gameObject.AddComponent<LineRenderer>();
-                pathPreview.startWidth = 0.1f;
-                pathPreview.endWidth = 0.1f;
-                pathPreview.positionCount = 0;
             }
         }
+        
+        // 设置路径渲染器的初始宽度
+        pathPreview.startWidth = pathWidth;
+        pathPreview.endWidth = pathWidth;
+        pathPreview.positionCount = 0;
     }
 
     private void Start()
@@ -185,12 +189,37 @@ public class PlayerController : MonoBehaviour
         // 计算贝塞尔曲线路径点
         CalculateMovementPath(targetPoint);
 
+        // 计算最终朝向
+        Vector3 finalDirection = (targetPoint - transform.position).normalized;
+        finalDirection.y = 0;
+
+        // 创建包含路径点和预览方向的完整点列表
+        List<Vector3> allPoints = new List<Vector3>(movementPath);
+        
+        // 添加最终朝向的预览线
+        float directionPreviewLength = GetCurrentMovementRadius() * 1.5f;
+        Vector3 directionEnd = targetPoint + finalDirection * directionPreviewLength;
+        
+        // 添加方向预览线的点
+        allPoints.Add(targetPoint);
+        allPoints.Add(directionEnd);
+
         // 更新路径渲染器
-        pathPreview.positionCount = movementPath.Count;
-        for (int i = 0; i < movementPath.Count; i++)
+        pathPreview.positionCount = allPoints.Count;
+        for (int i = 0; i < allPoints.Count; i++)
         {
-            pathPreview.SetPosition(i, movementPath[i]);
+            pathPreview.SetPosition(i, allPoints[i]);
         }
+
+        // 设置路径宽度渐变
+        float pathEndIndex = (float)(movementPath.Count - 1) / (allPoints.Count - 1);
+        AnimationCurve widthCurve = new AnimationCurve(
+            new Keyframe(0, pathWidth),                // 路径起点
+            new Keyframe(pathEndIndex, pathWidth),     // 路径终点
+            new Keyframe(pathEndIndex + 0.001f, directionLineWidth), // 方向线起点（添加一个微小偏移以确保突变）
+            new Keyframe(1f, directionLineWidth)       // 方向线终点（保持相同宽度）
+        );
+        pathPreview.widthCurve = widthCurve;
 
         // 设置有效路径材质
         pathPreview.material = validPathMaterial;

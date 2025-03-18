@@ -12,6 +12,14 @@ public class IsometricCameraController : MonoBehaviour
     private CinemachineBrain cinemachineBrain;
     private int currentCameraIndex = 0;                   // 当前激活的相机索引  
     
+    [Header("缩放设置")]
+    [SerializeField] private float minOrthographicSize = 3f;  // 最小正交相机尺寸
+    [SerializeField] private float maxOrthographicSize = 10f; // 最大正交相机尺寸
+    [SerializeField] private float zoomSpeed = 1f;           // 缩放速度
+    [SerializeField] private float smoothZoomSpeed = 10f;    // 平滑缩放速度
+    
+    private float targetOrthographicSize;                 // 目标正交相机尺寸
+
     private void Awake()
     {
         // 获取CinemachineBrain组件
@@ -28,6 +36,8 @@ public class IsometricCameraController : MonoBehaviour
             if (virtualCameras[i] != null)
             {
                 virtualCameras[i].Priority = (i == currentCameraIndex) ? 1 : 0;
+                // 设置初始正交尺寸
+                targetOrthographicSize = virtualCameras[i].Lens.OrthographicSize;
             }
             else
             {
@@ -55,6 +65,45 @@ public class IsometricCameraController : MonoBehaviour
         if (Keyboard.current.tKey.wasPressedThisFrame)
         {
             ToggleTopdownCamera();
+        }
+
+        // 处理鼠标滚轮缩放
+        float scrollValue = Mouse.current.scroll.ReadValue().y;
+        if (Mathf.Abs(scrollValue) > 0.01f)
+        {
+            // 更新目标正交尺寸
+            targetOrthographicSize = Mathf.Clamp(
+                targetOrthographicSize - scrollValue * zoomSpeed,
+                minOrthographicSize,
+                maxOrthographicSize
+            );
+        }
+
+        // 平滑更新所有相机的正交尺寸
+        foreach (var cam in virtualCameras)
+        {
+            if (cam != null)
+            {
+                var lens = cam.Lens;
+                lens.OrthographicSize = Mathf.Lerp(
+                    lens.OrthographicSize,
+                    targetOrthographicSize,
+                    Time.unscaledDeltaTime * smoothZoomSpeed
+                );
+                cam.Lens = lens;
+            }
+        }
+
+        // 同步更新topdownCamera的正交尺寸
+        if (topdownCamera != null)
+        {
+            var topdownLens = topdownCamera.Lens;
+            topdownLens.OrthographicSize = Mathf.Lerp(
+                topdownLens.OrthographicSize,
+                targetOrthographicSize,
+                Time.unscaledDeltaTime * smoothZoomSpeed
+            );
+            topdownCamera.Lens = topdownLens;
         }
     }
 

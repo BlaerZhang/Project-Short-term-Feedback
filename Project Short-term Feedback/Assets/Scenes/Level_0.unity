@@ -1446,6 +1446,8 @@ MonoBehaviour:
   arcIndicator: {fileID: 438908473}
   validPathMaterial: {fileID: 2100000, guid: 9e6cb46c0b9342142bd545c165fbab49, type: 2}
   invalidPathMaterial: {fileID: 2100000, guid: d486b95b7dbbff94ba1ceff0196d137c, type: 2}
+  pathWidth: 1
+  directionLineWidth: 0.05
   moveEase: 1
   rotateEase: 1
   pathUpdateInterval: 0.05
@@ -1462,7 +1464,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   outlineMode: 4
-  outlineColor: {r: 0.06666667, g: 0.49411768, b: 0.63529414, a: 1}
+  outlineColor: {r: 1, g: 0.3372549, b: 0.11764707, a: 1}
   outlineWidth: 2
   precomputeOutline: 0
   bakeKeys: []
@@ -3063,6 +3065,10 @@ MonoBehaviour:
   - {fileID: 1867699617}
   - {fileID: 1954675167}
   topdownCamera: {fileID: 1916313231}
+  minOrthographicSize: 5
+  maxOrthographicSize: 20
+  zoomSpeed: 1
+  smoothZoomSpeed: 10
 --- !u!1 &464168278
 GameObject:
   m_ObjectHideFlags: 0
