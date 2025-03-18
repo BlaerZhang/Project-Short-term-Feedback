@@ -91,6 +91,24 @@ public class PlayerController : MonoBehaviour
                 UpdateArcIndicator();
             }
         }
+
+        // Press 1 to set speed to 1
+        if (Keyboard.current.digit1Key.wasPressedThisFrame)
+        {
+            ChangeSpeed(1);
+        }
+
+        // Press 3 to set speed to 3
+        if (Keyboard.current.digit3Key.wasPressedThisFrame)
+        {
+            ChangeSpeed(3);
+        }
+
+        // Press 5 to set speed to 5
+        if (Keyboard.current.digit5Key.wasPressedThisFrame)
+        {
+            ChangeSpeed(5);
+        }
     }
 
     private void HandleMouseInput()
@@ -130,8 +148,6 @@ public class PlayerController : MonoBehaviour
     // 检查点是否在允许的移动范围内
     private bool IsPointValidForMovement(Vector3 point, out Vector3 validPoint)
     {
-        validPoint = point;
-
         // 计算到目标点的向量
         Vector3 toTarget = point - transform.position;
         toTarget.y = 0; // 确保在水平面上计算
@@ -139,6 +155,7 @@ public class PlayerController : MonoBehaviour
         // 如果目标点太近，视为无效
         if (toTarget.magnitude < 0.5f)
         {
+            validPoint = point;
             return false;
         }
 
@@ -146,30 +163,20 @@ public class PlayerController : MonoBehaviour
         float angle = Vector3.SignedAngle(currentDirection, toTarget.normalized, Vector3.up);
 
         // 根据当前速度计算允许的转向角度
-        float allowedAngle = Mathf.Lerp(maxTurnAngle, minTurnAngle, (currentSpeed - minSpeed) / (maxSpeed - minSpeed));
+        float allowedAngle = Mathf.Lerp(maxTurnAngle, minTurnAngle, (currentSpeed - minSpeed) / (maxSpeed - minSpeed)) * 0.5f;
 
+        // 计算最终角度（限制在允许范围内）
+        float targetAngle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
+        
         // 获取当前移动半径
         float currentRadius = GetCurrentMovementRadius();
 
-        // 计算目标点到圆弧的最近点
-        float targetAngle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
+        // 计算圆弧上的有效点
         Quaternion rotation = Quaternion.AngleAxis(targetAngle, Vector3.up);
-        Vector3 arcPoint = transform.position + (rotation * currentDirection) * currentRadius;
+        validPoint = transform.position + (rotation * currentDirection) * currentRadius;
 
-        // 计算点到圆弧的距离
-        float distanceToArc = Vector3.Distance(point, arcPoint);
-        float snapThreshold = 0.5f; // 吸附阈值
-
-        // 如果点足够接近圆弧，则吸附到圆弧上
-        if (distanceToArc <= snapThreshold)
-        {
-            validPoint = arcPoint;
-            return true;
-        }
-
-        // 如果点不在圆弧附近，返回最近的圆弧点但标记为无效
-        validPoint = arcPoint;
-        return false;
+        // 所有落在圆弧上的点都是有效的
+        return true;
     }
 
     // 显示路径预览
@@ -208,7 +215,7 @@ public class PlayerController : MonoBehaviour
         float angle = Vector3.SignedAngle(currentDirection, toTarget.normalized, Vector3.up);
         
         // 根据当前速度计算允许的转向角度
-        float allowedAngle = Mathf.Lerp(maxTurnAngle, minTurnAngle, (currentSpeed - minSpeed) / (maxSpeed - minSpeed));
+        float allowedAngle = Mathf.Lerp(maxTurnAngle, minTurnAngle, (currentSpeed - minSpeed) / (maxSpeed - minSpeed)) * 0.5f;
         
         // 确保角度在允许范围内
         float targetAngle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);

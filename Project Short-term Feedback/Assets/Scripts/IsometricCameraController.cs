@@ -1,94 +1,103 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using Unity.Cinemachine;
 
 public class IsometricCameraController : MonoBehaviour
 {
-    [Header("跟随设置")]
-    [SerializeField] private Transform target;            // 跟随目标（通常是玩家）
-    [SerializeField] private Vector3 offset = new Vector3(0, 10, -10); // 相机相对于目标的偏移量
-    [SerializeField] private float smoothSpeed = 5.0f;    // 相机跟随平滑系数
-    [SerializeField] private bool lookAtTarget = true;    // 是否始终看向目标
-
-    [Header("正交相机设置")]
-    [SerializeField] private bool useOrthographic = true; // 是否使用正交投影
-    [SerializeField] private float orthographicSize = 5f; // 正交相机尺寸
-
-    private Camera cam;
-
+    [Header("虚拟相机引用")]
+    [SerializeField] private CinemachineCamera[] virtualCameras = new CinemachineCamera[4];
+    [SerializeField] private CinemachineCamera topdownCamera;
+    
+    [Header("切换设置")]
+    private CinemachineBrain cinemachineBrain;
+    private int currentCameraIndex = 0;                   // 当前激活的相机索引  
+    
     private void Awake()
     {
-        // 获取相机组件
-        cam = GetComponent<Camera>();
-        if (cam == null)
+        // 获取CinemachineBrain组件
+        cinemachineBrain = Camera.main.GetComponent<CinemachineBrain>();
+        if (cinemachineBrain == null)
         {
-            Debug.LogError("IsometricCameraController: 未找到相机组件！");
+            Debug.LogError("IsometricCameraController: 主相机上未找到CinemachineBrain组件！");
             return;
         }
 
-        // 设置相机为正交模式
-        if (useOrthographic)
+        // 设置初始相机状态
+        for (int i = 0; i < virtualCameras.Length; i++)
         {
-            cam.orthographic = true;
-            cam.orthographicSize = orthographicSize;
-        }
-    }
-
-    private void Start()
-    {
-        // 如果未指定目标，尝试找到带有PlayerController组件的物体
-        if (target == null)
-        {
-            var player = FindObjectOfType<PlayerController>();
-            if (player != null)
+            if (virtualCameras[i] != null)
             {
-                target = player.transform;
+                virtualCameras[i].Priority = (i == currentCameraIndex) ? 1 : 0;
             }
             else
             {
-                Debug.LogWarning("IsometricCameraController: 未找到PlayerController！请手动指定目标。");
+                Debug.LogWarning($"IsometricCameraController: 虚拟相机 {i} 未设置！");
             }
         }
 
-        // 立即更新相机位置
-        if (target != null)
+        // 设置topdownCamera的优先级
+        topdownCamera.Priority = 0;
+    }
+
+    private void Update()
+    {
+        // 检测输入并切换相机
+        if (Keyboard.current.qKey.wasPressedThisFrame)
         {
-            Vector3 desiredPosition = target.position + offset;
-            transform.position = desiredPosition;
-            
-            if (lookAtTarget)
-            {
-                transform.LookAt(target);
-            }
+            RotateCamera(-1); // 逆时针旋转
+        }
+        else if (Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            RotateCamera(1);  // 顺时针旋转
+        }
+
+        // 按下t键切换到topdownCamera，按下t键切换回原来的相机状态
+        if (Keyboard.current.tKey.wasPressedThisFrame)
+        {
+            ToggleTopdownCamera();
         }
     }
 
-    private void LateUpdate()
+    private void RotateCamera(int direction)
     {
-        if (target == null)
-            return;
+        if (virtualCameras == null || virtualCameras.Length == 0) return;
 
-        // 计算期望位置
-        Vector3 desiredPosition = target.position + offset;
+        // 计算新的相机索引（确保在0-3之间循环）
+        int newIndex = (currentCameraIndex + direction + 4) % 4;
         
-        // 平滑移动相机
-        Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed * Time.deltaTime);
-        transform.position = smoothedPosition;
-
-        // 相机始终看向目标
-        if (lookAtTarget)
+        // 确保目标相机存在
+        if (virtualCameras[newIndex] == null)
         {
-            transform.LookAt(target);
+            Debug.LogWarning($"IsometricCameraController: 目标虚拟相机 {newIndex} 不存在！");
+            return;
         }
+
+        // 更新相机优先级
+        virtualCameras[currentCameraIndex].Priority = 0;
+        virtualCameras[newIndex].Priority = 10;
+
+        // 更新当前相机索引
+        currentCameraIndex = newIndex;
     }
 
-    // 设置相机尺寸
-    public void SetOrthographicSize(float size)
+    // 公共方法：直接切换到指定索引的相机
+    public void SwitchToCamera(int index)
     {
-        orthographicSize = size;
-        if (cam != null && cam.orthographic)
+        if (index < 0 || index >= 4 || virtualCameras[index] == null)
         {
-            cam.orthographicSize = orthographicSize;
+            Debug.LogWarning($"IsometricCameraController: 无效的相机索引 {index}！");
+            return;
         }
+
+        // 更新相机优先级
+        virtualCameras[currentCameraIndex].Priority = 0;
+        virtualCameras[index].Priority = 10;
+        currentCameraIndex = index;
     }
-} 
+
+    // 公共方法：topdownCamera的toggle方法
+    public void ToggleTopdownCamera()
+    {
+        topdownCamera.Priority = topdownCamera.Priority == 0 ? 11 : 0;
+    }   
+}

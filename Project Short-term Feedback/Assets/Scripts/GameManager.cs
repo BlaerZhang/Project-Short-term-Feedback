@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using UnityEngine.SceneManagement;
 public enum GameState
 {
     Planning,   // 规划阶段，玩家可以选择移动路径
@@ -167,6 +167,12 @@ public class GameManager : MonoBehaviour
             case GameState.Paused:
                 // 暂停状态的更新逻辑
                 break;
+        }
+
+        // Press R to reset the game
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
     }
 } 
