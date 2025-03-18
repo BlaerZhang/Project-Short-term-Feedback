@@ -25,6 +25,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Material invalidPathMaterial; // 无效路径材质
     [SerializeField] private float pathWidth = 0.1f;    // 路径宽度
     [SerializeField] private float directionLineWidth = 0.05f; // 方向指示线宽度
+    [SerializeField] private float pathHeightOffset = 0.01f;   // 路径高度偏移，避免Z轴抖动
 
     [Header("动画设置")]
     [SerializeField] private Ease moveEase = Ease.InOutSine;  // 移动缓动函数
@@ -49,20 +50,38 @@ public class PlayerController : MonoBehaviour
         // 初始化朝向
         currentDirection = transform.forward;
 
+        // 创建一个子物体来容纳LineRenderer，使其能够贴在地面上
+        GameObject lineRendererObj = new GameObject("PathPreview");
+        lineRendererObj.transform.SetParent(transform);
+        lineRendererObj.transform.localPosition = Vector3.zero;
+        lineRendererObj.transform.localRotation = Quaternion.Euler(90, 0, 0); // 旋转90度使线条贴地
+
         // 确保有LineRenderer组件
         if (pathPreview == null)
         {
-            pathPreview = GetComponent<LineRenderer>();
-            if (pathPreview == null)
+            pathPreview = lineRendererObj.AddComponent<LineRenderer>();
+        }
+        else
+        {
+            // 如果已经有LineRenderer，把它移到新的子物体上
+            Transform oldParent = pathPreview.transform.parent;
+            pathPreview.transform.SetParent(lineRendererObj.transform);
+            pathPreview.transform.localPosition = Vector3.up;
+            pathPreview.transform.localRotation = Quaternion.identity;
+            if (oldParent != transform && oldParent != null)
             {
-                pathPreview = gameObject.AddComponent<LineRenderer>();
+                Destroy(oldParent.gameObject);
             }
         }
         
-        // 设置路径渲染器的初始宽度
+        // 设置路径渲染器的初始属性
         pathPreview.startWidth = pathWidth;
         pathPreview.endWidth = pathWidth;
         pathPreview.positionCount = 0;
+        pathPreview.alignment = LineAlignment.TransformZ; // 使用TransformZ，因为我们已经旋转了物体
+        pathPreview.useWorldSpace = true; // 使用世界空间坐标
+        pathPreview.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        pathPreview.receiveShadows = false;
     }
 
     private void Start()
@@ -102,14 +121,14 @@ public class PlayerController : MonoBehaviour
             ChangeSpeed(1);
         }
 
-        // Press 3 to set speed to 3
-        if (Keyboard.current.digit3Key.wasPressedThisFrame)
+        // Press 2 to set speed to 3
+        if (Keyboard.current.digit2Key.wasPressedThisFrame)
         {
             ChangeSpeed(3);
         }
 
-        // Press 5 to set speed to 5
-        if (Keyboard.current.digit5Key.wasPressedThisFrame)
+        // Press 3 to set speed to 5
+        if (Keyboard.current.digit3Key.wasPressedThisFrame)
         {
             ChangeSpeed(5);
         }
@@ -204,11 +223,13 @@ public class PlayerController : MonoBehaviour
         allPoints.Add(targetPoint);
         allPoints.Add(directionEnd);
 
-        // 更新路径渲染器
+        // 更新路径渲染器，应用高度偏移
         pathPreview.positionCount = allPoints.Count;
         for (int i = 0; i < allPoints.Count; i++)
         {
-            pathPreview.SetPosition(i, allPoints[i]);
+            Vector3 point = allPoints[i];
+            point.y += pathHeightOffset;
+            pathPreview.SetPosition(i, point);
         }
 
         // 设置路径宽度渐变
