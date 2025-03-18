@@ -308,9 +308,9 @@ public class PlayerController : MonoBehaviour
         Sequence moveSequence = DOTween.Sequence();
 
         // 添加路径移动
-        moveSequence.Append(transform.DOPath(pathPoints, moveTime, PathType.Linear) // 改用Linear路径类型
+        moveSequence.Append(transform.DOPath(pathPoints, moveTime, PathType.Linear)
             .SetEase(moveEase)
-            .SetOptions(false) // 不使用路径朝向
+            .SetOptions(false)
             .OnUpdate(() =>
             {
                 // 路径移动过程中不更新朝向
@@ -337,6 +337,16 @@ public class PlayerController : MonoBehaviour
             // 清除路径预览
             HidePathPreview();
 
+            // 淡入圆弧指示器
+            if (arcIndicator != null)
+            {
+                ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
+                if (arc != null)
+                {
+                    arc.FadeIn();
+                }
+            }
+
             // 通知GameManager回到规划阶段
             if (gameManager != null)
             {
@@ -354,6 +364,16 @@ public class PlayerController : MonoBehaviour
         moveTargetPosition = targetPoint;
         isMoving = true;
         canMove = false;
+
+        // 淡出圆弧指示器
+        if (arcIndicator != null)
+        {
+            ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
+            if (arc != null)
+            {
+                arc.FadeOut();
+            }
+        }
 
         // 通知GameManager进入执行阶段
         if (gameManager != null)
