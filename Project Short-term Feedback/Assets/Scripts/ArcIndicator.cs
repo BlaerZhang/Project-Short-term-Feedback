@@ -9,6 +9,7 @@ public class ArcIndicator : MonoBehaviour
     [SerializeField] private float arcWidth = 0.1f;         // 圆弧宽度
     [SerializeField] private Material arcMaterial;          // 圆弧材质
     [SerializeField] private Color arcColor = new Color(0.2f, 0.8f, 1f, 0.5f); // 圆弧颜色
+    [SerializeField] private Material fillMaterial; // 填充材质
     [SerializeField] private float heightOffset = 0.05f;    // 高度偏移，避免z-fighting
     
     private MeshFilter meshFilter;        // 用于扇形填充的网格过滤器
@@ -60,9 +61,7 @@ public class ArcIndicator : MonoBehaviour
         // 设置填充材质
         if (arcMaterial != null)
         {
-            Material fillMaterial = new Material(arcMaterial);
-            fillMaterial.color = new Color(arcColor.r, arcColor.g, arcColor.b, arcColor.a * 0.3f);
-            meshRenderer.material = fillMaterial;
+           meshRenderer.material = fillMaterial;
         }
 
         // 设置渲染顺序，确保填充在线条下方
@@ -194,7 +193,7 @@ public class ArcIndicator : MonoBehaviour
         Color meshColor = meshRenderer.material.color;
         
         lineColor.a = visible ? arcColor.a : 0f;
-        meshColor.a = visible ? arcColor.a * 0.3f : 0f;
+        meshColor.a = visible ? arcColor.a * 1f : 0f;
         
         arcLineRenderer.startColor = lineColor;
         arcLineRenderer.endColor = lineColor;
