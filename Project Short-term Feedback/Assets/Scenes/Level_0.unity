@@ -1831,6 +1831,7 @@ MonoBehaviour:
   playerController: {fileID: 232871196}
   fixedTimeScale: 1
   planningUI: {fileID: 0}
+  targetingUI: {fileID: 0}
   executingUI: {fileID: 0}
 --- !u!4 &108511948
 Transform:
@@ -3925,6 +3926,27 @@ MonoBehaviour:
   maxMovementRadius: 5
   minMovementRadius: 1.5
   moveTime: 1
+  jumpMaxAngle: 90
+  jumpMinAngle: 30
+  jumpBaseRadius: 4
+  jumpMaxRadius: 8
+  jumpMinRadius: 2
+  jumpTime: 3
+  jumpHeightCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   pathPreview: {fileID: 0}
   pathResolution: 20
   arcIndicator: {fileID: 438908473}
@@ -3933,9 +3955,11 @@ MonoBehaviour:
   pathWidth: 0.5
   directionLineWidth: 0
   pathHeightOffset: 0.05
+  landingMarkerPrefab: {fileID: 8675611516516387144, guid: 5bed380413f310748899d7d830acd829, type: 3}
   moveEase: 1
   rotateEase: 1
   pathUpdateInterval: 0.05
+  characterAnimator: {fileID: 1505437375}
 --- !u!114 &232871197
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5436,7 +5460,7 @@ Transform:
   m_GameObject: {fileID: 297723682}
   serializedVersion: 2
   m_LocalRotation: {x: 0.38268343, y: 0, z: 0, w: 0.92387956}
-  m_LocalPosition: {x: 0, y: 10, z: -10}
+  m_LocalPosition: {x: 0, y: 30, z: -30}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -27705,12 +27729,12 @@ Transform:
   m_GameObject: {fileID: 1385059402}
   serializedVersion: 2
   m_LocalRotation: {x: 0.38268343, y: 0, z: 0, w: 0.92387956}
-  m_LocalPosition: {x: 0, y: 10, z: -10}
+  m_LocalPosition: {x: 0, y: 30, z: -30}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460919005}
-  m_LocalEulerAnglesHint: {x: -8.85, y: 360, z: 0}
+  m_LocalEulerAnglesHint: {x: 45, y: 0, z: 0}
 --- !u!114 &1385059405
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -27824,7 +27848,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3b5d7c088409d9a40b7b09aa707777f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  TargetOffset: {x: 0, y: 10, z: 0}
+  TargetOffset: {x: 0, y: 30, z: 0}
   TrackerSettings:
     BindingMode: 4
     PositionDamping: {x: 0, y: 0, z: 0}
@@ -27832,7 +27856,7 @@ MonoBehaviour:
     RotationDamping: {x: 1, y: 1, z: 1}
     QuaternionDamping: 1
   OrbitStyle: 0
-  Radius: 10
+  Radius: 30
   Orbits:
     Top:
       Radius: 2

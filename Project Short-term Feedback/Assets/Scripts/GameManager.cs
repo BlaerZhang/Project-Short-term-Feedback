@@ -4,7 +4,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 public enum GameState
 {
-    Planning,   // 规划阶段，玩家可以选择移动路径
+    Planning,   // 规划阶段，玩家选择要执行的动作类型
+    Targeting,  // 目标选择阶段，玩家选择路径/落点等
     Executing,  // 执行阶段，角色移动，时间流动
     Paused      // 游戏暂停
 }
@@ -19,6 +20,7 @@ public class GameManager : MonoBehaviour
 
     [Header("UI引用")]
     [SerializeField] private GameObject planningUI;              // 规划阶段UI
+    [SerializeField] private GameObject targetingUI;             // 目标选择阶段UI
     [SerializeField] private GameObject executingUI;             // 执行阶段UI
 
     // 当前游戏状态
@@ -67,6 +69,10 @@ public class GameManager : MonoBehaviour
                 if (planningUI != null) planningUI.SetActive(false);
                 break;
 
+            case GameState.Targeting:
+                if (targetingUI != null) targetingUI.SetActive(false);
+                break;
+
             case GameState.Executing:
                 if (executingUI != null) executingUI.SetActive(false);
                 Time.timeScale = 0f; // 停止时间
@@ -83,6 +89,11 @@ public class GameManager : MonoBehaviour
         {
             case GameState.Planning:
                 if (planningUI != null) planningUI.SetActive(true);
+                Time.timeScale = 0f; // 停止时间
+                break;
+
+            case GameState.Targeting:
+                if (targetingUI != null) targetingUI.SetActive(true);
                 Time.timeScale = 0f; // 停止时间
                 break;
 
@@ -107,18 +118,35 @@ public class GameManager : MonoBehaviour
         // 通知其他系统游戏状态变化
         // 可以使用事件系统或直接调用
         
-        // 示例：通知玩家控制器
+        // 通知玩家控制器
         if (playerController != null)
         {
-            // 可以添加玩家控制器的方法来响应游戏状态变化
-            // playerController.OnGameStateChanged(newState);
+            playerController.OnGameStateChanged(newState);
+        }
+    }
+
+    // 进入目标选择阶段
+    public void StartTargetingPhase()
+    {
+        if (CurrentState == GameState.Planning)
+        {
+            SetGameState(GameState.Targeting);
+        }
+    }
+
+    // 目标选择阶段结束，返回规划阶段
+    public void CancelTargetingPhase()
+    {
+        if (CurrentState == GameState.Targeting)
+        {
+            SetGameState(GameState.Planning);
         }
     }
 
     // 开始执行阶段（通常由玩家控制器调用）
     public void StartExecutionPhase()
     {
-        if (CurrentState == GameState.Planning)
+        if (CurrentState == GameState.Targeting)
         {
             SetGameState(GameState.Executing);
         }
@@ -159,6 +187,11 @@ public class GameManager : MonoBehaviour
                 // 例如：检查玩家输入，更新UI等
                 break;
 
+            case GameState.Targeting:
+                // 目标选择阶段的更新逻辑
+                // 例如：检查玩家输入，显示路径预览等
+                break;
+
             case GameState.Executing:
                 // 执行阶段的更新逻辑
                 // 例如：检查是否所有行动都执行完毕
@@ -173,6 +206,12 @@ public class GameManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.R))
         {
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
+
+        // Press Escape to cancel targeting
+        if (Input.GetKeyDown(KeyCode.Escape) && CurrentState == GameState.Targeting)
+        {
+            CancelTargetingPhase();
         }
     }
 } 
