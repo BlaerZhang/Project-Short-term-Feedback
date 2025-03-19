@@ -9,13 +9,14 @@ public class ArcIndicator : MonoBehaviour
     [SerializeField] private float arcWidth = 0.1f;         // 圆弧宽度
     [SerializeField] private Material arcMaterial;          // 圆弧材质
     [SerializeField] private Color arcColor = new Color(0.2f, 0.8f, 1f, 0.5f); // 圆弧颜色
-    [SerializeField] private Material fillMaterial; // 填充材质
     [SerializeField] private float heightOffset = 0.05f;    // 高度偏移，避免z-fighting
+    [SerializeField] private float baseAlpha = 0.5f;        // 基础透明度
+    [SerializeField] private float fillAlphaMultiplier = 0.3f; // 填充区域的透明度倍数
     
     private MeshFilter meshFilter;        // 用于扇形填充的网格过滤器
     private MeshRenderer meshRenderer;    // 用于扇形填充的网格渲染器
     private Mesh arcMesh;                // 扇形网格
-    private float currentAlpha = 1f;     // 当前透明度
+    private float currentAlpha;          // 当前透明度
     private Coroutine fadeCoroutine;     // 淡入淡出协程
 
     private void Awake()
@@ -61,11 +62,17 @@ public class ArcIndicator : MonoBehaviour
         // 设置填充材质
         if (arcMaterial != null)
         {
-           meshRenderer.material = fillMaterial;
+            Material fillMaterial = new Material(arcMaterial);
+            fillMaterial.color = new Color(arcColor.r, arcColor.g, arcColor.b, arcColor.a * 0.3f);
+            meshRenderer.material = fillMaterial;
         }
 
         // 设置渲染顺序，确保填充在线条下方
         meshRenderer.sortingOrder = arcLineRenderer.sortingOrder - 1;
+
+        // 设置初始透明度
+        currentAlpha = baseAlpha;
+        SetVisibility(true);
     }
 
     // 更新圆弧显示
@@ -189,11 +196,13 @@ public class ArcIndicator : MonoBehaviour
     // 设置可见性
     private void SetVisibility(bool visible)
     {
+        float targetAlpha = visible ? currentAlpha : 0f;
+        
         Color lineColor = arcLineRenderer.startColor;
         Color meshColor = meshRenderer.material.color;
         
-        lineColor.a = visible ? arcColor.a : 0f;
-        meshColor.a = visible ? arcColor.a * 1f : 0f;
+        lineColor.a = targetAlpha;
+        meshColor.a = targetAlpha * fillAlphaMultiplier;
         
         arcLineRenderer.startColor = lineColor;
         arcLineRenderer.endColor = lineColor;
@@ -217,27 +226,28 @@ public class ArcIndicator : MonoBehaviour
         {
             StopCoroutine(fadeCoroutine);
         }
+        currentAlpha = baseAlpha; // 重置当前透明度为基础透明度
         fadeCoroutine = StartCoroutine(FadeCoroutine(true, duration));
     }
 
     // 淡入淡出协程
     private IEnumerator FadeCoroutine(bool fadeIn, float duration)
     {
-        float startAlpha = fadeIn ? 0f : arcColor.a;
-        float targetAlpha = fadeIn ? arcColor.a : 0f;
+        float startAlpha = fadeIn ? 0f : currentAlpha;
+        float targetAlpha = fadeIn ? currentAlpha : 0f;
         float elapsedTime = 0f;
 
         while (elapsedTime < duration)
         {
-            elapsedTime += Time.deltaTime;
+            elapsedTime += Time.unscaledDeltaTime;
             float t = elapsedTime / duration;
-            float currentAlpha = Mathf.Lerp(startAlpha, targetAlpha, t);
+            float currentFadeAlpha = Mathf.Lerp(startAlpha, targetAlpha, t);
 
             Color lineColor = arcLineRenderer.startColor;
             Color meshColor = meshRenderer.material.color;
             
-            lineColor.a = currentAlpha;
-            meshColor.a = currentAlpha * 0.3f;
+            lineColor.a = currentFadeAlpha;
+            meshColor.a = currentFadeAlpha * fillAlphaMultiplier;
             
             arcLineRenderer.startColor = lineColor;
             arcLineRenderer.endColor = lineColor;

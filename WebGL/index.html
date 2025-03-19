@@ -42,7 +42,7 @@
 
 <body>
 	<div id="gameContainer">
-		<canvas id="unity-canvas" width="960" height="600" data-pixel-art=""></canvas>
+		<canvas id="unity-canvas" width="1280" height="720" data-pixel-art=""></canvas>
 		<script src="Build/WebGL.loader.js"></script>
 		<script>
 			var canvas = document.querySelector("#unity-canvas");
@@ -75,15 +75,15 @@
 					w = window.innerWidth;
 					h = window.innerHeight;
 
-					var r = 600 / 960;
+					var r = 720 / 1280;
 
 					if (w * r > window.innerHeight) {
 						w = Math.min(w, Math.ceil(h / r));
 					}
 					h = Math.floor(w * r);
 				} else {
-					w = 960;
-					h = 600;
+					w = 1280;
+					h = 720;
 				}
 
 				container.style.width = canvas.style.width = w + "px";

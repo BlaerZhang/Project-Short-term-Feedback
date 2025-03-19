@@ -25,7 +25,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Material invalidPathMaterial; // 无效路径材质
     [SerializeField] private float pathWidth = 0.1f;    // 路径宽度
     [SerializeField] private float directionLineWidth = 0.05f; // 方向指示线宽度
-    [SerializeField] private float pathHeightOffset = 0.01f;   // 路径高度偏移，避免Z轴抖动
+    [SerializeField] private float pathHeightOffset = 0.6f;   // 路径高度偏移，确保显示在扇形填充之上
 
     [Header("动画设置")]
     [SerializeField] private Ease moveEase = Ease.InOutSine;  // 移动缓动函数

@@ -3931,8 +3931,8 @@ MonoBehaviour:
   validPathMaterial: {fileID: 2100000, guid: 9e6cb46c0b9342142bd545c165fbab49, type: 2}
   invalidPathMaterial: {fileID: 2100000, guid: d486b95b7dbbff94ba1ceff0196d137c, type: 2}
   pathWidth: 0.5
-  directionLineWidth: 0.05
-  pathHeightOffset: 0.01
+  directionLineWidth: 0
+  pathHeightOffset: 0.05
   moveEase: 1
   rotateEase: 1
   pathUpdateInterval: 0.05
@@ -7781,9 +7781,10 @@ MonoBehaviour:
   arcResolution: 50
   arcWidth: 0.1
   arcMaterial: {fileID: 2100000, guid: 6bf79ef5de139654a9667a2f72a8cf78, type: 2}
-  arcColor: {r: 0.9559748, g: 0.42493364, b: 0.0030060085, a: 1}
-  fillMaterial: {fileID: 2100000, guid: 88a917cf7d210294f88a73e8fa42e84a, type: 2}
-  heightOffset: 0.05
+  arcColor: {r: 1, g: 1, b: 1, a: 1}
+  heightOffset: 0.01
+  baseAlpha: 0.5
+  fillAlphaMultiplier: 0.3
 --- !u!4 &438908475
 Transform:
   m_ObjectHideFlags: 0
