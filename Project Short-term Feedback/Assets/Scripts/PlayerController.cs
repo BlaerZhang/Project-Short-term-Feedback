@@ -671,11 +671,11 @@ public class PlayerController : MonoBehaviour
         Sequence jumpSequence = DOTween.Sequence();
 
         // 先旋转朝向目标
-        jumpSequence.Append(transform.DORotateQuaternion(targetRotation, jumpTime * 0.3f)
+        jumpSequence.Append(transform.DORotateQuaternion(targetRotation, jumpTime * 0.1f)
             .SetEase(rotateEase));
 
         // 然后执行跳跃
-        jumpSequence.Append(transform.DOMove(moveTargetPosition, jumpTime * 0.7f)
+        jumpSequence.Append(transform.DOMove(moveTargetPosition, jumpTime * 0.9f)
             .SetEase(moveEase)
             .OnStart(() => {
                 // 播放跳跃动画
