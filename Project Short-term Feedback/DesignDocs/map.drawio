@@ -1,0 +1,34 @@
+<mxfile host="Electron" modified="2025-03-20T19:40:03.503Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/21.2.1 Chrome/112.0.5615.87 Electron/24.1.2 Safari/537.36" etag="FKzbASaad-ou3wNHu2Ns" version="21.2.1" type="device">
+  <diagram name="第 1 页" id="oEAJBadnAkLhUkIot9dp">
+    <mxGraphModel dx="3410" dy="1947" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" backgroundImage="{&quot;src&quot;:&quot;https://i.pinimg.com/736x/2a/3e/a4/2a3ea4c84d59e7d9020eed4de1bf9899.jpg&quot;,&quot;width&quot;:&quot;736&quot;,&quot;height&quot;:&quot;719&quot;,&quot;x&quot;:0,&quot;y&quot;:0}" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="3DvBhLqhwpn-S4zHCYGp-2" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=https://i.pinimg.com/736x/2a/3e/a4/2a3ea4c84d59e7d9020eed4de1bf9899.jpg;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;locked=1;connectable=0;" parent="1" vertex="1">
+          <mxGeometry width="1600" height="1563.04" as="geometry" />
+        </mxCell>
+        <mxCell id="3DvBhLqhwpn-S4zHCYGp-3" value="" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#330000;fillColor=#B04721;shadow=1;strokeWidth=3;" parent="1" vertex="1">
+          <mxGeometry x="370" y="570" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3DvBhLqhwpn-S4zHCYGp-4" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fillColor=#67AB9F;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="490" y="460" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3DvBhLqhwpn-S4zHCYGp-7" value="" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#330000;fillColor=#B04721;shadow=1;strokeWidth=3;" parent="1" vertex="1">
+          <mxGeometry x="1660" y="440" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3DvBhLqhwpn-S4zHCYGp-8" value="Title" style="text;strokeColor=none;fillColor=none;html=1;fontSize=24;fontStyle=1;verticalAlign=middle;align=center;" parent="1" vertex="1">
+          <mxGeometry x="1680" y="590" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="3DvBhLqhwpn-S4zHCYGp-9" value="玩家" style="text;strokeColor=none;fillColor=none;html=1;fontSize=24;fontStyle=1;verticalAlign=middle;align=center;" parent="1" vertex="1">
+          <mxGeometry x="1680" y="435" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="3DvBhLqhwpn-S4zHCYGp-10" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=2;fillColor=#67AB9F;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="1660" y="520" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="3DvBhLqhwpn-S4zHCYGp-11" value="城镇" style="text;strokeColor=none;fillColor=none;html=1;fontSize=24;fontStyle=1;verticalAlign=middle;align=center;" parent="1" vertex="1">
+          <mxGeometry x="1680" y="515" width="100" height="40" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
