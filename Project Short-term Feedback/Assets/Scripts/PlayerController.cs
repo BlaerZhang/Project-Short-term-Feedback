@@ -19,6 +19,13 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float minSpeed = 1f;      // 角色最小移动速度
     [SerializeField] private float currentSpeed = 3f;  // 当前速度
 
+    [Header("角色碰撞设置")]
+    [SerializeField] private float playerCollisionRadius = 0.5f; // 角色碰撞半径
+    [SerializeField] private float collisionToleranceDistance = 0.1f; // 碰撞容差距离
+    [SerializeField] private LayerMask obstacleLayer; // 障碍物层级
+    [SerializeField] private bool drawCollisionGizmos = true; // 是否绘制碰撞调试信息
+    [SerializeField] private Material collisionPathMaterial; // 碰撞路径材质（红色）
+
     [Header("跑步设置")]
     [SerializeField] private float maxTurnAngle = 120f; // 最小速度时可转弯的最大角度
     [SerializeField] private float minTurnAngle = 30f;  // 最大速度时可转弯的最小角度
@@ -64,11 +71,19 @@ public class PlayerController : MonoBehaviour
     private List<Vector3> movementPath = new List<Vector3>(); // 当前移动路径
     private GameManager gameManager;     // 游戏管理器引用
     private GameObject landingMarker;    // 落点标记
+    private bool landingPointCollision = false; // 落点是否发生碰撞
+    private bool pathCollision = false;  // 路径是否发生碰撞
 
     private void Awake()
     {
         mainCamera = Camera.main;
         groundLayer = LayerMask.GetMask("Ground");
+        
+        // 如果没有设置障碍物层，默认使用"Obstacle"层
+        if (obstacleLayer.value == 0)
+        {
+            obstacleLayer = LayerMask.GetMask("Obstacle");
+        }
         
         // 初始化朝向
         currentDirection = transform.forward;
@@ -98,8 +113,8 @@ public class PlayerController : MonoBehaviour
         }
         
         // 设置路径渲染器的初始属性
-        pathPreview.startWidth = pathWidth;
-        pathPreview.endWidth = pathWidth;
+        pathPreview.startWidth = playerCollisionRadius * 2f; // 使路径宽度等于玩家碰撞直径
+        pathPreview.endWidth = playerCollisionRadius * 2f;
         pathPreview.positionCount = 0;
         pathPreview.alignment = LineAlignment.TransformZ; // 使用TransformZ，因为我们已经旋转了物体
         pathPreview.useWorldSpace = true; // 使用世界空间坐标
@@ -111,6 +126,24 @@ public class PlayerController : MonoBehaviour
         {
             landingMarker = Instantiate(landingMarkerPrefab, Vector3.zero, Quaternion.identity);
             landingMarker.SetActive(false);
+            
+            // 设置落点标记大小与玩家碰撞体一致
+            if (landingMarker.transform.childCount > 0)
+            {
+                landingMarker.transform.GetChild(0).localScale = new Vector3(
+                    playerCollisionRadius * 2f,
+                    playerCollisionRadius * 2f,
+                    1f
+                );
+            }
+            else
+            {
+                landingMarker.transform.localScale = new Vector3(
+                    playerCollisionRadius * 2f,
+                    playerCollisionRadius * 2f,
+                    1f
+                );
+            }
         }
     }
 
@@ -135,6 +168,19 @@ public class PlayerController : MonoBehaviour
         {
             characterAnimator = GetComponent<Animator>();
         }
+        
+        // 确认障碍物层设置
+        if (obstacleLayer.value == 0)
+        {
+            Debug.LogError("PlayerController: 未正确设置障碍物层 (obstacleLayer)！碰撞检测将无法工作。");
+        }
+        else
+        {
+            Debug.Log("PlayerController: 障碍物层设置为: " + LayerMaskToString(obstacleLayer));
+        }
+        
+        // 输出碰撞设置信息
+        Debug.LogFormat("PlayerController: 碰撞半径={0}, 容差距离={1}", playerCollisionRadius, collisionToleranceDistance);
     }
 
     private void Update()
@@ -262,17 +308,17 @@ public class PlayerController : MonoBehaviour
             // 计算点击位置是否在允许的移动范围内
             bool isValidMoveTarget = IsPointValidForRunning(hitPoint, out Vector3 validPoint);
 
-            // 显示路径预览
+            // 显示路径预览，这里会更新pathCollision状态
             ShowRunPathPreview(validPoint);
 
-            // 设置路径材质
-            pathPreview.material = isValidMoveTarget ? validPathMaterial : invalidPathMaterial;
+            // 综合考虑落点和路径碰撞状态
+            bool isFullyValid = isValidMoveTarget && !pathCollision;
 
             // 显示落点标记
-            UpdateLandingMarker(validPoint, isValidMoveTarget);
+            UpdateLandingMarker(validPoint, isFullyValid);
 
             // 如果鼠标左键点击且位置有效，开始移动
-            if (Mouse.current.leftButton.wasPressedThisFrame && isValidMoveTarget)
+            if (Mouse.current.leftButton.wasPressedThisFrame && isFullyValid)
             {
                 StartRunning(validPoint);
             }
@@ -300,17 +346,17 @@ public class PlayerController : MonoBehaviour
             // 计算点击位置是否在允许的跳跃范围内
             bool isValidJumpTarget = IsPointValidForJumping(hitPoint, out Vector3 validPoint);
 
-            // 不显示路径，只显示方向指示线
+            // 不显示路径，只显示方向指示线，这里会更新pathCollision状态
             ShowJumpDirectionPreview(validPoint);
 
-            // 设置路径材质
-            pathPreview.material = isValidJumpTarget ? validPathMaterial : invalidPathMaterial;
+            // 综合考虑落点和路径碰撞状态
+            bool isFullyValid = isValidJumpTarget && !pathCollision;
 
             // 显示落点标记
-            UpdateLandingMarker(validPoint, isValidJumpTarget);
+            UpdateLandingMarker(validPoint, isFullyValid);
 
             // 如果鼠标左键点击且位置有效，开始跳跃
-            if (Mouse.current.leftButton.wasPressedThisFrame && isValidJumpTarget)
+            if (Mouse.current.leftButton.wasPressedThisFrame && isFullyValid)
             {
                 StartJumping(validPoint);
             }
@@ -353,8 +399,12 @@ public class PlayerController : MonoBehaviour
         Quaternion rotation = Quaternion.AngleAxis(targetAngle, Vector3.up);
         validPoint = transform.position + (rotation * currentDirection) * currentRadius;
 
-        // 所有落在圆弧上的点都是有效的
-        return true;
+        // 检查落点是否与障碍物碰撞
+        landingPointCollision = CheckPointCollision(validPoint);
+
+        // 所有落在圆弧上的点都是有效的（角度和半径的限制）
+        // 但如果与障碍物碰撞，则返回false
+        return !landingPointCollision;
     }
 
     // 检查点是否在允许的跳跃范围内
@@ -387,8 +437,12 @@ public class PlayerController : MonoBehaviour
         Quaternion rotation = Quaternion.AngleAxis(targetAngle, Vector3.up);
         validPoint = transform.position + (rotation * currentDirection) * currentRadius;
 
-        // 所有落在圆弧上的点都是有效的
-        return true;
+        // 检查落点是否与障碍物碰撞
+        landingPointCollision = CheckPointCollision(validPoint);
+
+        // 所有落在圆弧上的点都是有效的（角度和半径的限制）
+        // 但如果与障碍物碰撞，则返回false
+        return !landingPointCollision;
     }
 
     // 显示跑步路径预览
@@ -401,77 +455,57 @@ public class PlayerController : MonoBehaviour
         Vector3 finalDirection = (targetPoint - transform.position).normalized;
         finalDirection.y = 0;
 
-        // 创建包含路径点和预览方向的完整点列表
-        List<Vector3> allPoints = new List<Vector3>(movementPath);
-        
-        // 添加最终朝向的预览线
-        float directionPreviewLength = GetCurrentRunRadius() * 1.5f;
-        Vector3 directionEnd = targetPoint + finalDirection * directionPreviewLength;
-        
-        // 添加方向预览线的点
-        allPoints.Add(targetPoint);
-        allPoints.Add(directionEnd);
+        // 检查路径是否与障碍物碰撞
+        pathCollision = CheckPathCollision(movementPath);
 
-        // 更新路径渲染器，应用高度偏移
-        pathPreview.positionCount = allPoints.Count;
-        for (int i = 0; i < allPoints.Count; i++)
+        // 设置路径预览线条渲染器的点
+        pathPreview.positionCount = movementPath.Count;
+        for (int i = 0; i < movementPath.Count; i++)
         {
-            Vector3 point = allPoints[i];
-            point.y += pathHeightOffset;
-            pathPreview.SetPosition(i, point);
+            // 为路径添加高度偏移，确保显示在地面之上
+            Vector3 pathPoint = movementPath[i];
+            pathPoint.y += pathHeightOffset;
+            pathPreview.SetPosition(i, pathPoint);
         }
 
-        // 设置路径宽度渐变
-        float pathEndIndex = (float)(movementPath.Count - 1) / (allPoints.Count - 1);
-        AnimationCurve widthCurve = new AnimationCurve(
-            new Keyframe(0, pathWidth),                // 路径起点
-            new Keyframe(pathEndIndex, pathWidth),     // 路径终点
-            new Keyframe(pathEndIndex + 0.001f, directionLineWidth), // 方向线起点（添加一个微小偏移以确保突变）
-            new Keyframe(1f, directionLineWidth)       // 方向线终点（保持相同宽度）
-        );
-        pathPreview.widthCurve = widthCurve;
-
-        // 设置有效路径材质
-        pathPreview.material = validPathMaterial;
+        // 设置路径材质（根据落点碰撞和路径碰撞决定）
+        UpdatePathMaterial();
     }
 
-    // 只显示跳跃方向指示线
+    // 显示跳跃方向预览
     private void ShowJumpDirectionPreview(Vector3 targetPoint)
     {
         // 计算起点和终点
-        Vector3 startPoint = transform.position;
-        startPoint.y += pathHeightOffset;
+        Vector3 startPos = transform.position;
+        startPos.y += pathHeightOffset;
+        Vector3 endPos = targetPoint;
+        endPos.y += pathHeightOffset;
+
+        // 设置路径预览线条渲染器的点（只有两个点的直线）
+        pathPreview.positionCount = 2;
+        pathPreview.SetPosition(0, startPos);
+        pathPreview.SetPosition(1, endPos);
         
-        Vector3 endPoint = targetPoint;
-        endPoint.y += pathHeightOffset;
-        
-        // 计算最终朝向
-        Vector3 finalDirection = (targetPoint - transform.position).normalized;
-        finalDirection.y = 0;
-        
-        // 添加方向预览线的点
-        float directionPreviewLength = GetCurrentJumpRadius() * 1.5f;
-        Vector3 directionEnd = targetPoint + finalDirection * directionPreviewLength;
-        directionEnd.y += pathHeightOffset;
-        
-        // 设置路径点
-        pathPreview.positionCount = 4;
-        pathPreview.SetPosition(0, startPoint);
-        pathPreview.SetPosition(1, endPoint);
-        pathPreview.SetPosition(2, endPoint);
-        pathPreview.SetPosition(3, directionEnd);
-        
-        // 设置路径宽度渐变
-        AnimationCurve widthCurve = new AnimationCurve(
-            new Keyframe(0, directionLineWidth),       // 起点连线
-            new Keyframe(0.33f, directionLineWidth),   // 终点连线
-            new Keyframe(0.66f, directionLineWidth),   // 方向线起点
-            new Keyframe(1f, directionLineWidth * 0.5f) // 方向线终点渐细
-        );
-        pathPreview.widthCurve = widthCurve;
-        
-        // 设置有效路径材质
-        pathPreview.material = validPathMaterial;
+        // 检查路径是否与障碍物碰撞
+        List<Vector3> jumpPath = new List<Vector3> { transform.position, targetPoint };
+        pathCollision = CheckPathCollision(jumpPath);
+
+        // 设置路径材质（根据落点碰撞和路径碰撞决定）
+        UpdatePathMaterial();
+    }
+
+    // 更新路径材质
+    private void UpdatePathMaterial()
+    {
+        // 根据路径有效性设置材质和颜色
+        if (landingPointCollision || pathCollision)
+        {
+            pathPreview.material = collisionPathMaterial; // 路径或落点碰撞使用碰撞材质
+        }
+        else
+        {
+            pathPreview.material = validPathMaterial; // 正常使用有效路径材质
+        }
     }
 
     // 隐藏路径预览
@@ -491,18 +525,13 @@ public class PlayerController : MonoBehaviour
             position.y += 0.05f; // 稍微抬高以避免z-fighting
             landingMarker.transform.position = position;
             
-            // 设置颜色或材质
-            Renderer renderer = landingMarker.GetComponent<Renderer>();
-            if (renderer != null)
+            // 使用LandingMarker脚本中的SetValid方法设置颜色
+            LandingMarker marker = landingMarker.GetComponent<LandingMarker>();
+            if (marker != null)
             {
-                if (isValid)
-                {
-                    renderer.material.color = Color.green;
-                }
-                else
-                {
-                    renderer.material.color = Color.red;
-                }
+                // 检查是否有碰撞
+                bool isValidWithoutCollision = isValid && !landingPointCollision && !pathCollision;
+                marker.SetValid(isValidWithoutCollision);
             }
         }
     }
@@ -531,25 +560,24 @@ public class PlayerController : MonoBehaviour
         // 根据当前速度计算允许的转向角度
         float allowedAngle = Mathf.Lerp(maxTurnAngle, minTurnAngle, (currentSpeed - minSpeed) / (maxSpeed - minSpeed)) * 0.5f;
         
-        // 确保角度在允许范围内
-        float targetAngle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
+        // 限制角度在允许范围内
+        angle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
         
-        // 生成圆弧路径点
-        for (int i = 0; i <= pathResolution; i++)
+        // 获取当前移动半径
+        float radius = GetCurrentRunRadius();
+        
+        // 计算路径点
+        int segments = pathResolution;
+        for (int i = 0; i <= segments; i++)
         {
-            float t = i / (float)pathResolution;
-            // 从0到targetAngle进行插值
-            float currentAngle = Mathf.Lerp(0, targetAngle, t);
+            float t = i / (float)segments;
+            float currentAngle = angle * t;
             
-            // 计算当前方向
             Quaternion rotation = Quaternion.AngleAxis(currentAngle, Vector3.up);
-            Vector3 currentDirection = rotation * this.currentDirection;
+            Vector3 direction = rotation * currentDirection;
             
-            // 计算路径点
-            float currentDistance = Mathf.Lerp(0, toTarget.magnitude, t);
-            Vector3 point = startPos + currentDirection * currentDistance;
-            
-            movementPath.Add(point);
+            Vector3 position = startPos + direction * radius * t;
+            movementPath.Add(position);
         }
     }
 
@@ -880,5 +908,247 @@ public class PlayerController : MonoBehaviour
         {
             Destroy(landingMarker);
         }
+    }
+
+    // 检查点是否与障碍物碰撞
+    private bool CheckPointCollision(Vector3 point)
+    {
+        // 使用OverlapSphere检测点周围是否有障碍物
+        Collider[] colliders = Physics.OverlapSphere(point, playerCollisionRadius, obstacleLayer);
+        
+        if (colliders.Length > 0)
+        {
+            // 计算碰撞体积或穿透深度
+            foreach (Collider collider in colliders)
+            {
+                // 计算玩家位置到碰撞体最近点的距离
+                Vector3 closestPoint = collider.ClosestPoint(point);
+                float distance = Vector3.Distance(point, closestPoint);
+                
+                // 如果距离小于碰撞半径减去容差距离，则视为碰撞
+                if (distance < playerCollisionRadius - collisionToleranceDistance)
+                {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    // 检查碰撞器是否具有不可跃过属性
+    private bool IsNotJumpable(Collider collider)
+    {
+        // 尝试获取MonoBehaviour组件
+        MonoBehaviour[] components = collider.GetComponents<MonoBehaviour>();
+        foreach (MonoBehaviour component in components)
+        {
+            // 通过反射检查组件是否有CannotJumpOver属性
+            System.Type type = component.GetType();
+            System.Reflection.PropertyInfo propInfo = type.GetProperty("CannotJumpOver");
+            
+            if (propInfo != null)
+            {
+                // 如果存在该属性，获取其值
+                try
+                {
+                    return (bool)propInfo.GetValue(component, null);
+                }
+                catch
+                {
+                    // 属性访问出错，忽略
+                }
+            }
+        }
+        
+        // 默认返回false，表示可以跳过
+        return false;
+    }
+
+    // 检查路径是否与障碍物碰撞
+    private bool CheckPathCollision(List<Vector3> path)
+    {
+        return CheckPathCollision(path, currentAction);
+    }
+
+    // 重载方法：检查路径是否与障碍物碰撞，考虑动作类型
+    private bool CheckPathCollision(List<Vector3> path, MoveActionType actionType)
+    {
+        // 路径太短，无需检查
+        if (path.Count < 2)
+        {
+            return false;
+        }
+        
+        // 分段检查路径碰撞
+        for (int i = 0; i < path.Count - 1; i += Mathf.Max(1, path.Count / 10)) // 减少检查点以提高性能
+        {
+            Vector3 start = path[i];
+            // 确保我们不超出数组范围
+            int endIndex = Mathf.Min(i + Mathf.Max(1, path.Count / 10), path.Count - 1);
+            Vector3 end = path[endIndex];
+            Vector3 direction = (end - start).normalized;
+            float distance = Vector3.Distance(start, end);
+            
+            // 使用OverlapSphere检测路径点是否与障碍物碰撞（不依赖于物理更新）
+            Collider[] colliders = Physics.OverlapSphere(start, playerCollisionRadius - collisionToleranceDistance, obstacleLayer);
+            
+            if (colliders.Length > 0)
+            {
+                // 判断是否需要考虑障碍物的可跳跃属性
+                if (actionType == MoveActionType.Jump)
+                {
+                    // 对于跳跃，只有"不可跃过"的障碍物才算碰撞
+                    foreach (Collider collider in colliders)
+                    {
+                        // 使用辅助方法检查障碍物属性
+                        if (IsNotJumpable(collider))
+                        {
+                            // Debug路径碰撞
+                            Debug.LogFormat("跳跃路径点 {0} 与不可跃过障碍物碰撞: {1}", i, collider.name);
+                            return true;
+                        }
+                    }
+                }
+                else
+                {
+                    // 对于其他动作类型（如跑步），任何障碍物都算碰撞
+                    Debug.LogFormat("路径点 {0} 与障碍物碰撞: {1}", i, colliders[0].name);
+                    return true;
+                }
+            }
+            
+            // 为起点和终点之间的路径进行离散采样检测
+            int steps = 5; // 每段路径的采样点数
+            for (int step = 1; step < steps; step++)
+            {
+                float t = step / (float)steps;
+                Vector3 samplePoint = Vector3.Lerp(start, end, t);
+                
+                colliders = Physics.OverlapSphere(samplePoint, playerCollisionRadius - collisionToleranceDistance, obstacleLayer);
+                if (colliders.Length > 0)
+                {
+                    // 判断是否需要考虑障碍物的可跳跃属性
+                    if (actionType == MoveActionType.Jump)
+                    {
+                        // 对于跳跃，只有"不可跃过"的障碍物才算碰撞
+                        bool foundNotJumpable = false;
+                        foreach (Collider collider in colliders)
+                        {
+                            // 使用辅助方法检查障碍物属性
+                            if (IsNotJumpable(collider))
+                            {
+                                foundNotJumpable = true;
+                                Debug.LogFormat("跳跃路径采样点 ({0}-{1}) 与不可跃过障碍物碰撞: {2}", i, step, collider.name);
+                                break;
+                            }
+                        }
+                        if (foundNotJumpable)
+                        {
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        // 对于其他动作类型（如跑步），任何障碍物都算碰撞
+                        Debug.LogFormat("路径采样点 ({0}-{1}) 与障碍物碰撞: {2}", i, step, colliders[0].name);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // 最后检查终点
+        Collider[] endColliders = Physics.OverlapSphere(path[path.Count - 1], playerCollisionRadius - collisionToleranceDistance, obstacleLayer);
+        if (endColliders.Length > 0)
+        {
+            // 判断是否需要考虑障碍物的可跳跃属性
+            if (actionType == MoveActionType.Jump)
+            {
+                // 对于跳跃，只有"不可跃过"的障碍物才算碰撞
+                foreach (Collider collider in endColliders)
+                {
+                    // 使用辅助方法检查障碍物属性
+                    if (IsNotJumpable(collider))
+                    {
+                        Debug.LogFormat("跳跃路径终点与不可跃过障碍物碰撞: {0}", collider.name);
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                // 对于其他动作类型（如跑步），任何障碍物都算碰撞
+                Debug.LogFormat("路径终点与障碍物碰撞: {0}", endColliders[0].name);
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    // 在Editor中绘制Gizmos
+    private void OnDrawGizmos()
+    {
+        if (drawCollisionGizmos)
+        {
+            // 绘制玩家碰撞体
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(transform.position, playerCollisionRadius);
+            
+            // 绘制带容差的碰撞体
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(transform.position, playerCollisionRadius - collisionToleranceDistance);
+        }
+    }
+
+    // 在Editor中验证参数
+    private void OnValidate()
+    {
+        // 确保路径宽度与玩家碰撞直径一致
+        pathWidth = playerCollisionRadius * 2f;
+        
+        // 如果有路径预览组件，更新其宽度
+        if (pathPreview != null)
+        {
+            pathPreview.startWidth = playerCollisionRadius * 2f;
+            pathPreview.endWidth = playerCollisionRadius * 2f;
+        }
+        
+        // 确保落点标记大小与玩家碰撞体一致
+        if (landingMarker != null)
+        {
+            // 更新落点标记大小
+            if (landingMarker.transform.childCount > 0)
+            {
+                landingMarker.transform.GetChild(0).localScale = new Vector3(
+                    playerCollisionRadius * 2f, 
+                    playerCollisionRadius * 2f, 
+                    1f
+                );
+            }
+            else
+            {
+                landingMarker.transform.localScale = new Vector3(
+                    playerCollisionRadius * 2f,
+                    playerCollisionRadius * 2f,
+                    1f
+                );
+            }
+        }
+    }
+
+    // 辅助方法：将LayerMask转换为字符串
+    private string LayerMaskToString(LayerMask mask)
+    {
+        string result = "";
+        for (int i = 0; i < 32; i++)
+        {
+            if ((mask & (1 << i)) != 0)
+            {
+                result += LayerMask.LayerToName(i) + ", ";
+            }
+        }
+        return result.TrimEnd(' ', ',');
     }
 } 
