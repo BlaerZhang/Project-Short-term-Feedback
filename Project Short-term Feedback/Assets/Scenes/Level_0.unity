@@ -8248,8 +8248,10 @@ MonoBehaviour:
   topdownCamera: {fileID: 1916313231}
   orbitXAxis: {fileID: 1385059407}
   orbitYAxis: {fileID: 1385059407}
-  minOrthographicSize: 5
-  maxOrthographicSize: 20
+  minOrthographicSize: 3
+  maxOrthographicSize: 10
+  minFieldOfView: 15
+  maxFieldOfView: 40
   zoomSpeed: 1
   smoothZoomSpeed: 10
 --- !u!1 &464168278
@@ -38392,7 +38394,7 @@ Transform:
   m_GameObject: {fileID: 1916313228}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 29, z: 0}
+  m_LocalPosition: {x: 0, y: 30, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -38416,7 +38418,7 @@ MonoBehaviour:
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
     QuaternionDamping: 1
-  FollowOffset: {x: 0, y: 29, z: 0}
+  FollowOffset: {x: 0, y: 30, z: 0}
 --- !u!114 &1916313231
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -38441,7 +38443,7 @@ MonoBehaviour:
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
-    FieldOfView: 40
+    FieldOfView: 30
     OrthographicSize: 7
     NearClipPlane: 0.1
     FarClipPlane: 5000

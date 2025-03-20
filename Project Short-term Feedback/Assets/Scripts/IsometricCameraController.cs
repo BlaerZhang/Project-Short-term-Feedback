@@ -12,14 +12,23 @@ public class IsometricCameraController : MonoBehaviour
     [SerializeField] private CinemachineInputAxisController orbitXAxis;  // Orbit X轴控制器
     [SerializeField] private CinemachineInputAxisController orbitYAxis;  // Orbit Y轴控制器
     
-    [Header("缩放设置")]
+    [Header("正交模式缩放设置")]
     [SerializeField] private float minOrthographicSize = 3f;   // 最小正交相机尺寸
     [SerializeField] private float maxOrthographicSize = 10f;  // 最大正交相机尺寸
+    
+    [Header("透视模式缩放设置")]
+    [SerializeField] private float minFieldOfView = 20f;       // 最小视场角
+    [SerializeField] private float maxFieldOfView = 60f;       // 最大视场角
+    
+    [Header("通用缩放设置")]
     [SerializeField] private float zoomSpeed = 1f;            // 缩放速度
     [SerializeField] private float smoothZoomSpeed = 10f;     // 平滑缩放速度
     
     private float targetOrthographicSize;                      // 目标正交相机尺寸
+    private float targetFieldOfView;                          // 目标视场角
     private bool isOrbiting = false;                          // 是否正在进行轨道旋转
+    private Camera mainCamera;                                // 主摄像机引用
+    private bool isInTopdownMode = false;                     // 是否处于俯视模式
 
     private void Awake()
     {
@@ -29,12 +38,33 @@ public class IsometricCameraController : MonoBehaviour
             return;
         }
 
+        // 获取主摄像机引用
+        mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            var camObj = GameObject.FindWithTag("MainCamera");
+            if (camObj != null)
+            {
+                mainCamera = camObj.GetComponent<Camera>();
+            }
+        }
+
+        if (mainCamera == null)
+        {
+            Debug.LogError("IsometricCameraController: 未找到主摄像机！");
+            return;
+        }
+
         // 设置初始状态
         orbitCamera.Priority = 10;
         topdownCamera.Priority = 0;
         
-        // 设置初始正交尺寸
+        // 设置初始正交尺寸和视场角
         targetOrthographicSize = orbitCamera.Lens.OrthographicSize;
+        targetFieldOfView = ConvertOrthographicSizeToFOV(targetOrthographicSize);
+        
+        // 设置相机投影模式
+        SetCameraProjectionMode(true, false); // 轨道相机使用正交，俯视相机使用透视
         
         // 初始禁用轨道控制
         DisableOrbitControls();
@@ -62,16 +92,57 @@ public class IsometricCameraController : MonoBehaviour
         float scrollValue = Mouse.current.scroll.ReadValue().y;
         if (Mathf.Abs(scrollValue) > 0.01f)
         {
-            // 更新目标正交尺寸
+            HandleZoomInput(scrollValue);
+        }
+
+        // 平滑更新相机缩放
+        UpdateCameraZoom();
+    }
+
+    private void HandleZoomInput(float scrollValue)
+    {
+        if (isInTopdownMode)
+        {
+            // 俯视模式（透视）下的缩放
+            targetFieldOfView = Mathf.Clamp(
+                targetFieldOfView + scrollValue * zoomSpeed * 4f, // 视场角变化速度调整
+                minFieldOfView,
+                maxFieldOfView
+            );
+            
+            // 同步更新正交尺寸，以便切换回正交模式时保持视觉一致性
+            targetOrthographicSize = ConvertFOVToOrthographicSize(targetFieldOfView);
+        }
+        else
+        {
+            // 轨道模式（正交）下的缩放
             targetOrthographicSize = Mathf.Clamp(
                 targetOrthographicSize - scrollValue * zoomSpeed,
                 minOrthographicSize,
                 maxOrthographicSize
             );
+            
+            // 同步更新视场角，以便切换到透视模式时保持视觉一致性
+            targetFieldOfView = ConvertOrthographicSizeToFOV(targetOrthographicSize);
         }
-
-        // 平滑更新相机正交尺寸
-        UpdateCameraZoom();
+    }
+    
+    // 将正交尺寸转换为等效的视场角（FOV）
+    private float ConvertOrthographicSizeToFOV(float orthographicSize)
+    {
+        // 正交尺寸越大，对应的视场角越大
+        // 在这里使用线性映射，可以根据需要调整算法
+        float normalizedSize = Mathf.InverseLerp(minOrthographicSize, maxOrthographicSize, orthographicSize);
+        return Mathf.Lerp(minFieldOfView, maxFieldOfView, normalizedSize);
+    }
+    
+    // 将视场角（FOV）转换为等效的正交尺寸
+    private float ConvertFOVToOrthographicSize(float fieldOfView)
+    {
+        // 视场角越大，对应的正交尺寸越大
+        // 在这里使用线性映射，可以根据需要调整算法
+        float normalizedFOV = Mathf.InverseLerp(minFieldOfView, maxFieldOfView, fieldOfView);
+        return Mathf.Lerp(minOrthographicSize, maxOrthographicSize, normalizedFOV);
     }
 
     private void EnableOrbitControls()
@@ -90,7 +161,7 @@ public class IsometricCameraController : MonoBehaviour
 
     private void UpdateCameraZoom()
     {
-        // 更新Orbit相机缩放
+        // 更新Orbit相机缩放（正交模式）
         var orbitLens = orbitCamera.Lens;
         orbitLens.OrthographicSize = Mathf.Lerp(
             orbitLens.OrthographicSize,
@@ -99,15 +170,21 @@ public class IsometricCameraController : MonoBehaviour
         );
         orbitCamera.Lens = orbitLens;
 
-        // 同步更新俯视相机缩放
+        // 更新Topdown相机缩放（透视模式）
         var topdownLens = topdownCamera.Lens;
-        topdownLens.OrthographicSize = orbitLens.OrthographicSize;
+        topdownLens.FieldOfView = Mathf.Lerp(
+            topdownLens.FieldOfView,
+            targetFieldOfView,
+            Time.unscaledDeltaTime * smoothZoomSpeed
+        );
         topdownCamera.Lens = topdownLens;
     }
 
     public void ToggleTopdownCamera()
     {
-        if (topdownCamera.Priority == 0)
+        isInTopdownMode = topdownCamera.Priority == 0; // 切换前的状态取反
+        
+        if (isInTopdownMode)
         {
             topdownCamera.Priority = 11;
             orbitCamera.Priority = 0;
@@ -116,6 +193,37 @@ public class IsometricCameraController : MonoBehaviour
         {
             topdownCamera.Priority = 0;
             orbitCamera.Priority = 10;
+        }
+        
+        // 切换摄像机投影模式
+        if (mainCamera != null)
+        {
+            mainCamera.orthographic = !isInTopdownMode;
+        }
+    }
+    
+    // 设置相机投影模式
+    private void SetCameraProjectionMode(bool orbitIsOrthographic, bool topdownIsOrthographic)
+    {
+        // 设置Orbit相机投影模式
+        var orbitLens = orbitCamera.Lens;
+        orbitLens.ModeOverride = orbitIsOrthographic ? 
+            LensSettings.OverrideModes.Orthographic : 
+            LensSettings.OverrideModes.Perspective;
+        orbitCamera.Lens = orbitLens;
+        
+        // 设置Topdown相机投影模式
+        var topdownLens = topdownCamera.Lens;
+        topdownLens.ModeOverride = topdownIsOrthographic ? 
+            LensSettings.OverrideModes.Orthographic : 
+            LensSettings.OverrideModes.Perspective;
+        topdownCamera.Lens = topdownLens;
+        
+        // 设置初始FOV
+        if (!topdownIsOrthographic)
+        {
+            topdownLens.FieldOfView = targetFieldOfView;
+            topdownCamera.Lens = topdownLens;
         }
     }
 }
