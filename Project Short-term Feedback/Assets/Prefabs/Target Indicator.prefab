@@ -78,7 +78,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 1029a0ebfc19cbc4780ee4e55f0bcd64, type: 3}
-  m_Color: {r: 0, g: 1, b: 0.12941177, a: 0.78431374}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.78431374}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -101,6 +101,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rotationSpeed: 90
-  pulseSpeed: 1
-  minScale: 0.8
-  maxScale: 1.2
+  validColor: {r: 0, g: 1, b: 0, a: 0.78431374}
+  invalidColor: {r: 1, g: 0, b: 0, a: 0.78431374}
