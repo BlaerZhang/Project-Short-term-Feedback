@@ -208,8 +208,8 @@ public class GameManager : MonoBehaviour
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
 
-        // Press Escape to cancel targeting
-        if (Input.GetKeyDown(KeyCode.Escape) && CurrentState == GameState.Targeting)
+        // Press Escape or Right Mouse Button to cancel targeting
+        if (CurrentState == GameState.Targeting && (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1)))
         {
             CancelTargetingPhase();
         }

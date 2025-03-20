@@ -148,6 +148,9 @@ public class PlayerController : MonoBehaviour
                     break;
 
                 case GameState.Targeting:
+                    // 处理目标选择阶段的按键输入（直接切换动作类型）
+                    HandleTargetingInput();
+                    
                     // 处理目标选择
                     if (!isMoving && canMove)
                     {
@@ -196,6 +199,30 @@ public class PlayerController : MonoBehaviour
         else if (Keyboard.current.wKey.wasPressedThisFrame)
         {
             SelectAction(MoveActionType.Jump);
+        }
+    }
+
+    // 处理目标选择阶段的输入
+    private void HandleTargetingInput()
+    {
+        // 在目标选择阶段，允许直接按Q或W切换动作类型
+        if (Keyboard.current.qKey.wasPressedThisFrame && currentAction != MoveActionType.Run)
+        {
+            // 先取消当前目标选择，再选择新的动作
+            if (gameManager != null)
+            {
+                gameManager.CancelTargetingPhase();
+                SelectAction(MoveActionType.Run);
+            }
+        }
+        else if (Keyboard.current.wKey.wasPressedThisFrame && currentAction != MoveActionType.Jump)
+        {
+            // 先取消当前目标选择，再选择新的动作
+            if (gameManager != null)
+            {
+                gameManager.CancelTargetingPhase();
+                SelectAction(MoveActionType.Jump);
+            }
         }
     }
 
