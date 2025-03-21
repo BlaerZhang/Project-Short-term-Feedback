@@ -149,7 +149,6 @@ public class PlayerController : MonoBehaviour
 
     private void Start()
     {
-        Cursor.visible = false;
         // 初始化路径预览
         if (pathPreview != null)
         {
