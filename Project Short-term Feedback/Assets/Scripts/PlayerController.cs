@@ -9,7 +9,8 @@ public enum MoveActionType
 {
     None,   // 未选择
     Run,    // 跑步
-    Jump    // 跳跃
+    Jump,   // 跳跃
+    Turn    // 转向
 }
 
 public class PlayerController : MonoBehaviour
@@ -60,6 +61,16 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float pathUpdateInterval = 0.05f; // 路径更新间隔
     [SerializeField] private Animator characterAnimator; // 角色动画控制器
 
+    [Header("转向设置")]
+    [Tooltip("转向方向指示线长度")]
+    [SerializeField] private float turnIndicatorLength = 2f;
+    [Tooltip("执行转向所需时间(秒)")]
+    [SerializeField] private float turnTime = 0.5f;
+    [Tooltip("转向方向指示器宽度")]
+    [SerializeField] private float turnIndicatorWidth = 0.1f;
+    [Tooltip("转向方向指示器材质")]
+    [SerializeField] private Material turnIndicatorMaterial;
+
     // 状态变量
     private MoveActionType currentAction = MoveActionType.None; // 当前选择的动作
     private Vector3 moveTargetPosition;  // 移动目标位置
@@ -73,6 +84,7 @@ public class PlayerController : MonoBehaviour
     private GameObject landingMarker;    // 落点标记
     private bool landingPointCollision = false; // 落点是否发生碰撞
     private bool pathCollision = false;  // 路径是否发生碰撞
+    private GameState gameState;         // 游戏状态
 
     private void Awake()
     {
@@ -209,6 +221,10 @@ public class PlayerController : MonoBehaviour
                             case MoveActionType.Jump:
                                 HandleJumpTargeting();
                                 break;
+
+                            case MoveActionType.Turn:
+                                HandleTurnTargeting();
+                                break;
                         }
                     }
                     break;
@@ -246,6 +262,11 @@ public class PlayerController : MonoBehaviour
         {
             SelectAction(MoveActionType.Jump);
         }
+        // E键选择转向
+        else if (Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            SelectAction(MoveActionType.Turn);
+        }
     }
 
     // 处理目标选择阶段的输入
@@ -270,24 +291,72 @@ public class PlayerController : MonoBehaviour
                 SelectAction(MoveActionType.Jump);
             }
         }
+        else if (Keyboard.current.eKey.wasPressedThisFrame && currentAction != MoveActionType.Turn)
+        {
+            // 先取消当前目标选择，再选择新的动作
+            if (gameManager != null)
+            {
+                gameManager.CancelTargetingPhase();
+                SelectAction(MoveActionType.Turn);
+            }
+        }
+        else if (Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            // 取消当前动作
+            CancelCurrentAction();
+            if (gameManager != null)
+            {
+                gameManager.SetGameState(GameState.Planning);
+            }
+        }
     }
 
+    // 选择动作方法
     private void SelectAction(MoveActionType actionType)
     {
+        // 设置当前动作
         currentAction = actionType;
+        
+        // 根据动作类型更新状态
+        switch (actionType)
+        {
+            case MoveActionType.Run:
+                Debug.Log("选择跑步动作");
+                break;
+            case MoveActionType.Jump:
+                Debug.Log("选择跳跃动作");
+                break;
+            case MoveActionType.Turn:
+                Debug.Log("选择转向动作");
+                // 转向动作立即隐藏弧形指示器
+                if (arcIndicator != null)
+                {
+                    ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
+                    if (arc != null)
+                    {
+                        arc.FadeOut();
+                    }
+                }
+                break;
+        }
+        
+        // 通知游戏管理器进入目标选择阶段
         if (gameManager != null)
         {
             gameManager.StartTargetingPhase();
         }
 
-        // 显示圆弧指示器
-        UpdateArcIndicator();
-        if (arcIndicator != null)
+        // 显示圆弧指示器 (仅当不是转向动作时)
+        if (actionType != MoveActionType.Turn)
         {
-            ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
-            if (arc != null)
+            UpdateArcIndicator();
+            if (arcIndicator != null)
             {
-                arc.FadeIn();
+                ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
+                if (arc != null)
+                {
+                    arc.FadeIn();
+                }
             }
         }
     }
@@ -457,6 +526,10 @@ public class PlayerController : MonoBehaviour
         // 检查路径是否与障碍物碰撞
         pathCollision = CheckPathCollision(movementPath);
 
+        // 设置路径宽度 - 确保与角色碰撞体一致
+        pathPreview.startWidth = playerCollisionRadius * 2f;
+        pathPreview.endWidth = playerCollisionRadius * 2f;
+
         // 设置路径预览线条渲染器的点
         pathPreview.positionCount = movementPath.Count;
         for (int i = 0; i < movementPath.Count; i++)
@@ -479,6 +552,10 @@ public class PlayerController : MonoBehaviour
         startPos.y += pathHeightOffset;
         Vector3 endPos = targetPoint;
         endPos.y += pathHeightOffset;
+
+        // 设置路径宽度 - 确保与角色碰撞体一致
+        pathPreview.startWidth = playerCollisionRadius * 2f;
+        pathPreview.endWidth = playerCollisionRadius * 2f;
 
         // 设置路径预览线条渲染器的点（只有两个点的直线）
         pathPreview.positionCount = 2;
@@ -790,8 +867,19 @@ public class PlayerController : MonoBehaviour
     {
         if (arcIndicator != null)
         {
+            // 如果是转向动作，直接隐藏弧形指示器并返回
+            if (currentAction == MoveActionType.Turn)
+            {
+                ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
+                if (arc != null)
+                {
+                    arc.FadeOut();
+                }
+                return;
+            }
+
             float allowedAngle, currentRadius;
-            
+
             // 根据当前动作类型和速度计算角度和半径
             if (currentAction == MoveActionType.Run)
             {
@@ -800,6 +888,14 @@ public class PlayerController : MonoBehaviour
                 
                 // 获取当前移动半径
                 currentRadius = GetCurrentRunRadius();
+                
+                // 显示圆弧指示器
+                ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
+                if (arc != null)
+                {
+                    arc.UpdateArc(transform.position, currentDirection, currentRadius, allowedAngle);
+                    arc.FadeIn();
+                }
             }
             else if (currentAction == MoveActionType.Jump)
             {
@@ -808,19 +904,23 @@ public class PlayerController : MonoBehaviour
                 
                 // 获取当前跳跃半径
                 currentRadius = GetCurrentJumpRadius();
+                
+                // 显示圆弧指示器
+                ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
+                if (arc != null)
+                {
+                    arc.UpdateArc(transform.position, currentDirection, currentRadius, allowedAngle);
+                    arc.FadeIn();
+                }
             }
             else
             {
-                // 默认值
-                allowedAngle = 90f;
-                currentRadius = 3f;
-            }
-            
-            // 更新圆弧指示器
-            ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
-            if (arc != null)
-            {
-                arc.UpdateArc(transform.position, currentDirection, currentRadius, allowedAngle);
+                // 默认情况下隐藏圆弧指示器
+                ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
+                if (arc != null)
+                {
+                    arc.FadeOut();
+                }
             }
         }
     }
@@ -851,13 +951,15 @@ public class PlayerController : MonoBehaviour
         return Mathf.Lerp(jumpMinRadius, jumpMaxRadius, (currentSpeed - minSpeed) / (maxSpeed - minSpeed));
     }
 
-    // 游戏状态变化响应
+    // 接收游戏状态变化通知
     public void OnGameStateChanged(GameState newState)
     {
+        gameState = newState;
+
         switch (newState)
         {
             case GameState.Planning:
-                // 在规划阶段，隐藏移动范围指示器
+                // 在计划阶段，隐藏移动范围指示器
                 if (arcIndicator != null)
                 {
                     ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
@@ -869,11 +971,42 @@ public class PlayerController : MonoBehaviour
                 // 隐藏路径预览和落点标记
                 HidePathPreview();
                 HideLandingMarker();
+                // 重置当前动作
+                currentAction = MoveActionType.None;
                 break;
 
             case GameState.Targeting:
-                // 在目标选择阶段，显示移动范围指示器
-                UpdateArcIndicator();
+                // 如果当前动作是转向，确保不显示弧形指示器
+                if (currentAction == MoveActionType.Turn)
+                {
+                    if (arcIndicator != null)
+                    {
+                        ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
+                        if (arc != null)
+                        {
+                            arc.FadeOut();
+                        }
+                    }
+                }
+                else
+                {
+                    // 对于其他动作，正常显示移动范围指示器
+                    UpdateArcIndicator();
+                }
+                
+                // 根据当前选择的动作类型显示相应的UI
+                switch (currentAction)
+                {
+                    case MoveActionType.Run:
+                        // 显示跑步范围提示
+                        break;
+                    case MoveActionType.Jump:
+                        // 显示跳跃范围提示
+                        break;
+                    case MoveActionType.Turn:
+                        // 转向不需要显示范围提示
+                        break;
+                }
                 break;
 
             case GameState.Executing:
@@ -1149,5 +1282,174 @@ public class PlayerController : MonoBehaviour
             }
         }
         return result.TrimEnd(' ', ',');
+    }
+
+    // 处理转向目标选择
+    private void HandleTurnTargeting()
+    {
+        // ESC键取消当前动作
+        if (Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            CancelCurrentAction();
+            if (gameManager != null)
+            {
+                gameManager.CancelTargetingPhase();
+            }
+            return;
+        }
+        
+        // 获取鼠标位置
+        Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit, 100f, groundLayer))
+        {
+            Vector3 hitPoint = hit.point;
+            // 确保hitPoint与角色在同一高度
+            hitPoint.y = transform.position.y;
+
+            // 计算角色到点击位置的方向向量（不考虑高度）
+            Vector3 directionToTarget = hitPoint - transform.position;
+            directionToTarget.y = 0f;
+            
+            // 如果方向向量过短，可能是点击了角色位置附近，此时不显示指示器
+            if (directionToTarget.magnitude < 0.1f)
+            {
+                HidePathPreview();
+                return;
+            }
+            
+            // 计算目标方向的单位向量
+            Vector3 targetDirection = directionToTarget.normalized;
+            
+            // 显示转向方向指示器
+            ShowTurnDirectionIndicator(targetDirection);
+            
+            // 如果鼠标左键点击，开始转向
+            if (Mouse.current.leftButton.wasPressedThisFrame)
+            {
+                StartTurning(targetDirection);
+            }
+        }
+        else
+        {
+            // 没有命中地面，隐藏路径
+            HidePathPreview();
+        }
+    }
+    
+    // 显示转向方向指示器
+    private void ShowTurnDirectionIndicator(Vector3 direction)
+    {
+        // 计算起点和终点
+        Vector3 startPos = transform.position;
+        startPos.y += pathHeightOffset;
+        Vector3 endPos = startPos + direction * turnIndicatorLength;
+        
+        // 设置路径预览线条渲染器的点
+        pathPreview.positionCount = 2;
+        pathPreview.SetPosition(0, startPos);
+        pathPreview.SetPosition(1, endPos);
+        
+        // 设置线条宽度
+        pathPreview.startWidth = turnIndicatorWidth;
+        pathPreview.endWidth = 0f; // 末端为尖头形状
+        
+        // 设置转向指示器材质
+        pathPreview.material = turnIndicatorMaterial != null ? turnIndicatorMaterial : validPathMaterial;
+        
+        // 确保路径可见
+        pathPreview.enabled = true;
+    }
+    
+    // 开始执行转向
+    private void StartTurning(Vector3 targetDirection)
+    {
+        // 隐藏路径预览
+        HidePathPreview();
+        
+        // 记录当前朝向和目标朝向
+        Vector3 currentForward = transform.forward;
+        currentForward.y = 0f;
+        currentForward.Normalize();
+        
+        targetDirection.y = 0f;
+        targetDirection.Normalize();
+        
+        // 计算旋转角度（有符号角度，正值表示顺时针，负值表示逆时针）
+        float angle = Vector3.SignedAngle(currentForward, targetDirection, Vector3.up);
+        
+        // 设置动画状态
+        if (characterAnimator != null)
+        {
+            characterAnimator.SetBool("IsTurning", true);
+        }
+        
+        // 改变游戏状态为执行中
+        if (gameManager != null)
+        {
+            gameManager.StartExecutionPhase();
+        }
+        
+        // 使用协程执行旋转
+        StartCoroutine(TurningCoroutine(angle));
+    }
+    
+    // 转向协程
+    private IEnumerator TurningCoroutine(float angle)
+    {
+        // 计算旋转速度（度/秒）
+        float rotationSpeed = Mathf.Abs(angle) / turnTime;
+        
+        // 记录初始旋转和已旋转角度
+        Quaternion startRotation = transform.rotation;
+        float rotatedAngle = 0f;
+        
+        // 获取旋转方向（1为顺时针，-1为逆时针）
+        float direction = Mathf.Sign(angle);
+        
+        // 旋转过程
+        while (rotatedAngle < Mathf.Abs(angle))
+        {
+            // 使用unscaledDeltaTime确保TimeScale=0时也能正常工作
+            float deltaAngle = rotationSpeed * Time.unscaledDeltaTime;
+            
+            // 确保不会旋转过头
+            deltaAngle = Mathf.Min(deltaAngle, Mathf.Abs(angle) - rotatedAngle);
+            
+            // 应用旋转
+            transform.Rotate(Vector3.up, deltaAngle * direction);
+            
+            // 更新已旋转角度
+            rotatedAngle += deltaAngle;
+            
+            yield return null;
+        }
+        
+        // 确保精确旋转到目标角度
+        transform.rotation = Quaternion.Euler(0, startRotation.eulerAngles.y + angle, 0);
+        
+        // 更新当前朝向为新的前方向
+        currentDirection = transform.forward;
+        
+        // 设置动画状态
+        if (characterAnimator != null)
+        {
+            characterAnimator.SetBool("IsTurning", false);
+        }
+        
+        // 转向完成，回到计划状态
+        if (gameManager != null)
+        {
+            gameManager.EndExecutionPhase();
+        }
+    }
+    
+    // 取消当前动作
+    private void CancelCurrentAction()
+    {
+        // 隐藏路径预览和落点标记
+        HidePathPreview();
+        HideLandingMarker();
     }
 } 
