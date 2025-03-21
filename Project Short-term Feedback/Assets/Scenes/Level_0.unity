@@ -3680,7 +3680,7 @@ MonoBehaviour:
   invalidPathMaterial: {fileID: 2100000, guid: d486b95b7dbbff94ba1ceff0196d137c, type: 2}
   pathWidth: 0.5
   directionLineWidth: 0.05
-  pathHeightOffset: 0.05
+  pathHeightOffset: 0.02
   landingMarkerPrefab: {fileID: 8675611516516387144, guid: 5bed380413f310748899d7d830acd829, type: 3}
   moveEase: 1
   rotateEase: 1
