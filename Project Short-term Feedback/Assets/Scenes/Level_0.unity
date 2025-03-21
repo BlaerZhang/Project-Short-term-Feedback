@@ -3622,13 +3622,13 @@ MonoBehaviour:
   minSpeed: 1
   currentSpeed: 5
   playerCollisionRadius: 0.25
-  collisionToleranceDistance: 0
+  collisionToleranceDistance: 0.1
   obstacleLayer:
     serializedVersion: 2
     m_Bits: 128
   drawCollisionGizmos: 1
   collisionPathMaterial: {fileID: 2100000, guid: d486b95b7dbbff94ba1ceff0196d137c, type: 2}
-  maxTurnAngle: 180
+  maxTurnAngle: 150
   minTurnAngle: 30
   baseMovementRadius: 3
   maxMovementRadius: 5
@@ -30745,7 +30745,7 @@ SpriteRenderer:
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 4, y: 4}
+  m_Size: {x: 0.98, y: 0.98}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
