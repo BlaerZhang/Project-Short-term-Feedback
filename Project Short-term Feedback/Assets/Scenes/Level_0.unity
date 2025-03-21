@@ -3686,6 +3686,10 @@ MonoBehaviour:
   rotateEase: 1
   pathUpdateInterval: 0.05
   characterAnimator: {fileID: 1505437375}
+  turnIndicatorLength: 2
+  turnTime: 0.5
+  turnIndicatorWidth: 0.1
+  turnIndicatorMaterial: {fileID: 0}
 --- !u!4 &232871198
 Transform:
   m_ObjectHideFlags: 0
