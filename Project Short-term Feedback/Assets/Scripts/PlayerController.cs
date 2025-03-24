@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using DG.Tweening;
+using DG.Tweening.Core;
+using DG.Tweening.Plugins.Options;
+using DG.Tweening.Plugins;
 
 // 移动动作类型枚举
 public enum MoveActionType
@@ -198,6 +201,12 @@ public class PlayerController : MonoBehaviour
     {
         if (gameManager != null)
         {
+            // 在执行阶段更新动作进度
+            if (gameManager.CurrentState == GameState.Executing)
+            {
+                gameManager.UpdateActionProgress();
+            }
+            
             switch (gameManager.CurrentState)
             {
                 case GameState.Planning:
@@ -657,209 +666,227 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    // 开始跑步移动到目标点
+    // 开始跑步
     private void StartRunning(Vector3 targetPoint)
     {
-        if (isMoving || !canMove)
-            return;
-
-        moveTargetPosition = targetPoint;
-        isMoving = true;
-        canMove = false;
-
-        // 淡出圆弧指示器
-        if (arcIndicator != null)
-        {
-            ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
-            if (arc != null)
-            {
-                arc.FadeOut();
-            }
-        }
-
-        // 隐藏落点标记
+        // 隐藏路径预览和落点标记
+        HidePathPreview();
         HideLandingMarker();
 
-        // 通知GameManager进入执行阶段
+        // 计算路径
+        CalculateRunPath(targetPoint);
+
+        // 路径中是否有足够的点
+        if (movementPath.Count < 2)
+        {
+            Debug.LogWarning("路径点不足，无法开始移动");
+            return;
+        }
+
+        // 计算总路径长度和预期移动时间
+        float totalPathLength = 0f;
+        for (int i = 0; i < movementPath.Count - 1; i++)
+        {
+            totalPathLength += Vector3.Distance(movementPath[i], movementPath[i + 1]);
+        }
+        
+        // 计算预期移动时间 (根据速度和路径长度)
+        float expectedMoveDuration = totalPathLength / currentSpeed;
+        
+        // 通知GameManager设置预期动作时间
+        if (gameManager != null)
+        {
+            gameManager.SetExpectedActionDuration(expectedMoveDuration);
+        }
+
+        // 更新动画器速度
+        if (characterAnimator != null)
+        {
+            characterAnimator.SetFloat("Speed", currentSpeed);
+            characterAnimator.SetBool("IsMoving", true);
+        }
+
+        // 改变游戏状态为执行中
         if (gameManager != null)
         {
             gameManager.StartExecutionPhase();
         }
 
-        // 使用DOTween进行移动
-        StartRunningWithDOTween();
+        // 启动移动协程
+        StartCoroutine(RunningCoroutine(movementPath));
     }
 
-    // 开始跳跃移动到目标点
-    private void StartJumping(Vector3 targetPoint)
+    // 使用协程执行跑步移动
+    private IEnumerator RunningCoroutine(List<Vector3> path)
     {
-        if (isMoving || !canMove)
-            return;
+        if (path.Count < 2)
+            yield break;
 
-        moveTargetPosition = targetPoint;
         isMoving = true;
         canMove = false;
-
-        // 淡出圆弧指示器
-        if (arcIndicator != null)
-        {
-            ArcIndicator arc = arcIndicator.GetComponent<ArcIndicator>();
-            if (arc != null)
-            {
-                arc.FadeOut();
-            }
-        }
-
-        // 隐藏落点标记
-        HideLandingMarker();
-
-        // 通知GameManager进入执行阶段
-        if (gameManager != null)
-        {
-            gameManager.StartExecutionPhase();
-        }
-
-        // 使用DOTween进行跳跃
-        StartJumpingWithDOTween();
-    }
-
-    // 使用DOTween沿路径移动（跑步）
-    private void StartRunningWithDOTween()
-    {
-        if (movementPath.Count == 0)
-            return;
-
-        // 创建路径点数组
-        Vector3[] pathPoints = movementPath.ToArray();
 
         // 获取初始和目标朝向
-        Quaternion startRotation = transform.rotation;
-        Vector3 finalDirection = (moveTargetPosition - transform.position).normalized;
+        Vector3 finalPosition = path[path.Count - 1];
+        Vector3 finalDirection = (finalPosition - transform.position).normalized;
         finalDirection.y = 0;
         Quaternion targetRotation = Quaternion.LookRotation(finalDirection);
 
-        // 创建移动序列
+        // 使用DOTween创建移动
+        Transform t = transform; // 缓存transform引用提高性能
         Sequence moveSequence = DOTween.Sequence();
 
+        // 记录起始时间和路径总时长
+        float startTime = Time.time;
+        float totalTime = moveTime;
+
         // 添加路径移动
-        moveSequence.Append(transform.DOPath(pathPoints, moveTime, PathType.Linear)
+        moveSequence.Append(t.DOPath(path.ToArray(), moveTime, PathType.Linear)
             .SetEase(moveEase)
-            .SetOptions(false)
-            .OnStart(() => {
-                // 播放跑步动画
-                if (characterAnimator != null)
+            .OnUpdate(() => {
+                // 计算动作进度基于已过时长，这避免了路径计算问题
+                if (gameManager != null)
                 {
-                    characterAnimator.SetTrigger("Run");
+                    float elapsedTime = Time.time - startTime;
+                    float progress = elapsedTime / totalTime;
+                    
+                    // 通知GameManager更新进度
+                    gameManager.UpdateActionProgressByDistance(progress);
+                    
+                    // 调试日志
+                    if (currentSpeed <= 1.5f && Vector3.Angle(currentDirection, finalDirection) > 60f)
+                    {
+                        Debug.LogFormat("大角度慢速跑步进度: {0:P2}", progress);
+                    }
                 }
             }));
 
         // 同时进行朝向旋转
-        transform.DORotateQuaternion(targetRotation, moveTime)
+        t.DORotateQuaternion(targetRotation, moveTime)
             .SetEase(rotateEase);
 
-        // 移动完成后的回调
-        moveSequence.OnComplete(() =>
+        // 等待移动完成
+        yield return moveSequence.WaitForCompletion();
+
+        // 确保精确位置
+        t.position = finalPosition;
+        t.rotation = targetRotation;
+            
+        // 更新当前朝向
+        currentDirection = finalDirection;
+            
+        // 结束动画
+        if (characterAnimator != null)
         {
-            // 确保精确位置
-            transform.position = moveTargetPosition;
-            transform.rotation = targetRotation;
-            
-            // 更新当前朝向
-            currentDirection = finalDirection;
-            
-            // 重置状态
-            isMoving = false;
-            canMove = true;
-            currentAction = MoveActionType.None;
-            
-            // 清除路径预览
-            HidePathPreview();
+            characterAnimator.SetBool("IsMoving", false);
+        }
 
-            // 结束动画
-            if (characterAnimator != null)
-            {
-                characterAnimator.SetTrigger("Idle");
-            }
+        // 重置状态
+        isMoving = false;
+        canMove = true;
+        currentAction = MoveActionType.None;
 
-            // 通知GameManager回到规划阶段
-            if (gameManager != null)
-            {
-                gameManager.EndExecutionPhase();
-            }
-        });
+        // 通知GameManager回到规划阶段
+        if (gameManager != null)
+        {
+            gameManager.EndExecutionPhase();
+        }
     }
 
-    // 使用DOTween执行跳跃
-    private void StartJumpingWithDOTween()
+    // 开始跳跃
+    private void StartJumping(Vector3 targetPoint)
     {
-        // 获取初始和目标朝向
-        Vector3 startPosition = transform.position;
-        Quaternion startRotation = transform.rotation;
-        Vector3 finalDirection = (moveTargetPosition - transform.position).normalized;
-        finalDirection.y = 0;
-        Quaternion targetRotation = Quaternion.LookRotation(finalDirection);
+        // 隐藏路径预览和落点标记
+        HidePathPreview();
+        HideLandingMarker();
 
-        // 创建移动序列
+        // 计算跳跃轨迹
+        List<Vector3> jumpPath = CalculateJumpPath(targetPoint);
+
+        // 计算预期跳跃时间
+        float expectedJumpDuration = jumpTime;
+        
+        // 通知GameManager设置预期动作时间
+        if (gameManager != null)
+        {
+            gameManager.SetExpectedActionDuration(expectedJumpDuration);
+        }
+
+        // 更新动画器设置 - 使用Trigger而非Bool
+        if (characterAnimator != null)
+        {
+            characterAnimator.SetTrigger("Jump");
+        }
+
+        // 改变游戏状态为执行中
+        if (gameManager != null)
+        {
+            gameManager.StartExecutionPhase();
+        }
+
+        // 启动跳跃协程
+        StartCoroutine(JumpingCoroutine(targetPoint, jumpPath));
+    }
+
+    // 使用协程执行跳跃
+    private IEnumerator JumpingCoroutine(Vector3 targetPoint, List<Vector3> jumpPath)
+    {
+        if (jumpPath.Count < 2)
+            yield break;
+
+        isMoving = true;
+        canMove = false;
+
+        // 计算跳跃开始和结束的朝向
+        Vector3 jumpDirection = (targetPoint - transform.position).normalized;
+        jumpDirection.y = 0;
+        Quaternion targetRotation = Quaternion.LookRotation(jumpDirection);
+
+        // 记录开始时间和总时长
+        float startTime = Time.time;
+        float totalTime = jumpTime;
+
+        // 使用DOTween创建跳跃序列
+        Transform t = transform; // 缓存transform引用提高性能
         Sequence jumpSequence = DOTween.Sequence();
 
-        // 先旋转朝向目标
-        jumpSequence.Append(transform.DORotateQuaternion(targetRotation, jumpTime * 0.1f)
-            .SetEase(rotateEase));
+        // 先旋转到跳跃方向
+        jumpSequence.Append(t.DORotateQuaternion(targetRotation, jumpTime * 0.2f));
 
-        // 然后执行跳跃
-        jumpSequence.Append(transform.DOMove(moveTargetPosition, jumpTime * 0.9f)
-            .SetEase(moveEase)
-            .OnStart(() => {
-                // 播放跳跃动画
-                if (characterAnimator != null)
-                {
-                    characterAnimator.SetTrigger("Jump");
-                }
-            })
+        // 然后沿路径移动
+        jumpSequence.Append(t.DOPath(jumpPath.ToArray(), jumpTime * 0.8f, PathType.CatmullRom)
+            .SetEase(Ease.OutQuad)
             .OnUpdate(() => {
-                // 根据跳跃曲线更新Y轴高度
-                float jumpProgress = (transform.position - startPosition).magnitude / 
-                                    (moveTargetPosition - startPosition).magnitude;
-                
-                // 应用跳跃高度曲线
-                float heightOffset = jumpHeightCurve.Evaluate(jumpProgress) * 
-                                    Vector3.Distance(startPosition, moveTargetPosition) * 0.3f; // 高度为距离的30%
-                
-                Vector3 currentPos = transform.position;
-                currentPos.y = startPosition.y + heightOffset;
-                transform.position = currentPos;
+                // 计算基于时间的进度
+                if (gameManager != null)
+                {
+                    float elapsedTime = Time.time - startTime;
+                    float progress = elapsedTime / totalTime;
+                    
+                    // 通知GameManager更新进度
+                    gameManager.UpdateActionProgressByDistance(progress);
+                }
             }));
 
-        // 移动完成后的回调
-        jumpSequence.OnComplete(() =>
+        // 等待跳跃完成
+        yield return jumpSequence.WaitForCompletion();
+
+        // 确保精确位置
+        t.position = targetPoint;
+        t.rotation = targetRotation;
+            
+        // 更新当前朝向
+        currentDirection = jumpDirection;
+            
+        // 重置状态 - 移除设置IsJumping为false的代码，因为使用了Trigger
+        isMoving = false;
+        canMove = true;
+        currentAction = MoveActionType.None;
+
+        // 通知GameManager回到规划阶段
+        if (gameManager != null)
         {
-            // 确保精确位置
-            transform.position = moveTargetPosition;
-            transform.rotation = targetRotation;
-            
-            // 更新当前朝向
-            currentDirection = finalDirection;
-            
-            // 重置状态
-            isMoving = false;
-            canMove = true;
-            currentAction = MoveActionType.None;
-            
-            // 清除路径预览
-            HidePathPreview();
-
-            // 结束动画
-            if (characterAnimator != null)
-            {
-                characterAnimator.SetTrigger("Idle");
-            }
-
-            // 通知GameManager回到规划阶段
-            if (gameManager != null)
-            {
-                gameManager.EndExecutionPhase();
-            }
-        });
+            gameManager.EndExecutionPhase();
+        }
     }
 
     // 更新可移动范围的圆弧指示器
@@ -1379,6 +1406,15 @@ public class PlayerController : MonoBehaviour
         // 计算旋转角度（有符号角度，正值表示顺时针，负值表示逆时针）
         float angle = Vector3.SignedAngle(currentForward, targetDirection, Vector3.up);
         
+        // 计算预期转向时间
+        float expectedTurnDuration = turnTime;
+        
+        // 通知GameManager设置预期动作时间
+        if (gameManager != null)
+        {
+            gameManager.SetExpectedActionDuration(expectedTurnDuration);
+        }
+        
         // 设置动画状态
         if (characterAnimator != null)
         {
@@ -1398,6 +1434,13 @@ public class PlayerController : MonoBehaviour
     // 转向协程
     private IEnumerator TurningCoroutine(float angle)
     {
+        isMoving = true;
+        canMove = false;
+        
+        // 记录开始时间和总时长
+        float startTime = Time.time;
+        float totalTime = turnTime;
+        
         // 计算旋转速度（度/秒）
         float rotationSpeed = Mathf.Abs(angle) / turnTime;
         
@@ -1411,8 +1454,8 @@ public class PlayerController : MonoBehaviour
         // 旋转过程
         while (rotatedAngle < Mathf.Abs(angle))
         {
-            // 使用unscaledDeltaTime确保TimeScale=0时也能正常工作
-            float deltaAngle = rotationSpeed * Time.unscaledDeltaTime;
+            // 使用deltaTime确保受到timeScale影响
+            float deltaAngle = rotationSpeed * Time.deltaTime;
             
             // 确保不会旋转过头
             deltaAngle = Mathf.Min(deltaAngle, Mathf.Abs(angle) - rotatedAngle);
@@ -1422,6 +1465,14 @@ public class PlayerController : MonoBehaviour
             
             // 更新已旋转角度
             rotatedAngle += deltaAngle;
+            
+            // 计算进度并通知GameManager - 使用基于时间的进度计算
+            if (gameManager != null)
+            {
+                float elapsedTime = Time.time - startTime;
+                float progress = elapsedTime / totalTime;
+                gameManager.UpdateActionProgressByDistance(progress);
+            }
             
             yield return null;
         }
@@ -1438,6 +1489,11 @@ public class PlayerController : MonoBehaviour
             characterAnimator.SetBool("IsTurning", false);
         }
         
+        // 重置状态
+        isMoving = false;
+        canMove = true;
+        currentAction = MoveActionType.None;
+        
         // 转向完成，回到计划状态
         if (gameManager != null)
         {
@@ -1451,5 +1507,29 @@ public class PlayerController : MonoBehaviour
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
+    }
+
+    // 计算跳跃路径
+    private List<Vector3> CalculateJumpPath(Vector3 targetPoint)
+    {
+        List<Vector3> jumpPath = new List<Vector3>();
+        Vector3 startPos = transform.position;
+        
+        // 创建路径点数组
+        int segments = 20; // 跳跃路径分段数
+        for (int i = 0; i <= segments; i++)
+        {
+            float t = i / (float)segments;
+            Vector3 pathPoint = Vector3.Lerp(startPos, targetPoint, t);
+            
+            // 根据跳跃曲线添加高度
+            float heightOffset = jumpHeightCurve.Evaluate(t) * 
+                                Vector3.Distance(startPos, targetPoint) * 0.3f; // 高度为距离的30%
+            
+            pathPoint.y = startPos.y + heightOffset;
+            jumpPath.Add(pathPoint);
+        }
+        
+        return jumpPath;
     }
 } 

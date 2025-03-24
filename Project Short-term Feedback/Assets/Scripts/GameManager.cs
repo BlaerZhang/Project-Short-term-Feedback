@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using DG.Tweening;
+
 public enum GameState
 {
     Planning,   // 规划阶段，玩家选择要执行的动作类型
@@ -22,6 +24,24 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject planningUI;              // 规划阶段UI
     [SerializeField] private GameObject targetingUI;             // 目标选择阶段UI
     [SerializeField] private GameObject executingUI;             // 执行阶段UI
+
+    [Header("时间缩放设置")]
+    [Tooltip("执行阶段结束前的时间缩放效果持续时间")]
+    [SerializeField] private float timeScaleChangeDuration = 0.5f;
+    [Tooltip("时间缩放的目标值")]
+    [Range(0.01f, 0.5f)]
+    [SerializeField] private float targetTimeScale = 0.1f;
+    [Tooltip("开始时间缩放的执行进度百分比(0-1)")]
+    [Range(0.5f, 0.95f)]
+    [SerializeField] private float startSlowMotionAtProgress = 0.8f;
+    
+    // 公开获取慢动作起始阈值的属性
+    public float SlowMotionStartThreshold => startSlowMotionAtProgress;
+    
+    private bool isSlowingDown = false;
+    private float actionStartTime;
+    private float expectedActionDuration;
+    private Tween timeScaleTween;
 
     // 当前游戏状态
     public GameState CurrentState { get; private set; } = GameState.Planning;
@@ -146,19 +166,91 @@ public class GameManager : MonoBehaviour
     // 开始执行阶段（通常由玩家控制器调用）
     public void StartExecutionPhase()
     {
-        if (CurrentState == GameState.Targeting)
+        // 设置游戏状态为执行中
+        SetGameState(GameState.Executing);
+        
+        // 重置时间缩放相关的状态
+        isSlowingDown = false;
+        actionStartTime = Time.time;
+        
+        // 确保时间缩放为1
+        Time.timeScale = 1f;
+    }
+
+    public void SetExpectedActionDuration(float duration)
+    {
+        expectedActionDuration = duration;
+        Debug.Log($"设置动作预期时长: {duration}秒");
+    }
+
+    // 基于已走过的距离百分比更新动作进度
+    public void UpdateActionProgressByDistance(float distanceProgress)
+    {
+        // 仅在执行状态下并且未开始减速时检查
+        if (CurrentState != GameState.Executing || isSlowingDown)
+            return;
+            
+        // 判断是否应该开始减速
+        if (distanceProgress >= startSlowMotionAtProgress)
         {
-            SetGameState(GameState.Executing);
+            StartSlowMotion();
         }
     }
 
-    // 执行阶段结束，返回规划阶段（通常由玩家控制器调用）
+    public void UpdateActionProgress()
+    {
+        // 仅在执行状态下并且未开始减速时检查
+        if (CurrentState != GameState.Executing || isSlowingDown)
+            return;
+            
+        // 计算当前执行进度
+        float elapsedTime = Time.time - actionStartTime;
+        float progress = elapsedTime / expectedActionDuration;
+        
+        // 判断是否应该开始减速
+        if (progress >= startSlowMotionAtProgress && expectedActionDuration > 0)
+        {
+            StartSlowMotion();
+        }
+    }
+    
+    private void StartSlowMotion()
+    {
+        if (isSlowingDown)
+            return;
+            
+        isSlowingDown = true;
+        Debug.Log("开始慢动作效果");
+        
+        // 计算剩余时间基于百分比
+        float remainingPercentage = 1f - startSlowMotionAtProgress;
+        float remainingTime = expectedActionDuration * remainingPercentage;
+        
+        // 使用DOTween平滑过渡TimeScale
+        // 注意：timeScaleTween在新执行前应该先被kill，防止冲突
+        if (timeScaleTween != null && timeScaleTween.IsActive())
+            timeScaleTween.Kill();
+            
+        timeScaleTween = DOTween.To(() => Time.timeScale, x => Time.timeScale = x, targetTimeScale, timeScaleChangeDuration)
+            .SetEase(Ease.OutQuad)
+            .SetUpdate(true); // true表示即使timeScale=0也会更新
+    }
+
     public void EndExecutionPhase()
     {
-        if (CurrentState == GameState.Executing)
-        {
-            SetGameState(GameState.Planning);
-        }
+        // 确保任何正在进行的时间缩放过渡被停止
+        if (timeScaleTween != null && timeScaleTween.IsActive())
+            timeScaleTween.Kill();
+            
+        // 设置时间缩放为0（进入计划阶段）
+        Time.timeScale = 0f;
+        
+        // 设置游戏状态为规划中
+        SetGameState(GameState.Planning);
+        
+        // 重置状态
+        isSlowingDown = false;
+        expectedActionDuration = 0f;
     }
 
     // 暂停游戏
@@ -213,5 +305,15 @@ public class GameManager : MonoBehaviour
         {
             CancelTargetingPhase();
         }
+    }
+
+    private void OnDestroy()
+    {
+        // 确保应用退出时恢复正常时间缩放
+        Time.timeScale = 1f;
+        
+        // 确保清理所有正在运行的Tween
+        if (timeScaleTween != null && timeScaleTween.IsActive())
+            timeScaleTween.Kill();
     }
 } 

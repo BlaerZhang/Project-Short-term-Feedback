@@ -17,7 +17,7 @@ RenderSettings:
   m_Fog: 0
   m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.01
+  m_FogDensity: 0
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
   m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
@@ -1768,6 +1768,9 @@ MonoBehaviour:
   planningUI: {fileID: 0}
   targetingUI: {fileID: 0}
   executingUI: {fileID: 0}
+  timeScaleChangeDuration: 0.3
+  targetTimeScale: 0.1
+  startSlowMotionAtProgress: 0.8
 --- !u!4 &108511948
 Transform:
   m_ObjectHideFlags: 0
@@ -3639,7 +3642,7 @@ MonoBehaviour:
   jumpBaseRadius: 1.5
   jumpMaxRadius: 3
   jumpMinRadius: 1
-  jumpTime: 1
+  jumpTime: 0.8
   jumpHeightCurve:
     serializedVersion: 2
     m_Curve:
