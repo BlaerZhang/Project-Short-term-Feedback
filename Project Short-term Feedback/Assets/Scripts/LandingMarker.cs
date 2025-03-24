@@ -2,7 +2,6 @@ using UnityEngine;
 
 public class LandingMarker : MonoBehaviour
 {
-    [SerializeField] private float rotationSpeed = 90f; // 每秒旋转的角度
     [SerializeField] private Color validColor = Color.green; // 有效位置的颜色
     [SerializeField] private Color invalidColor = Color.red; // 无效位置的颜色
 
@@ -27,18 +26,32 @@ public class LandingMarker : MonoBehaviour
         visualTransform.localRotation = Quaternion.Euler(90, 0, 0);
     }
 
-    private void Update()
-    {
-        // 绕Z轴旋转（因为我们已经旋转了90度，所以现在Z轴垂直于地面）
-        visualTransform.Rotate(0, 0, rotationSpeed * Time.unscaledDeltaTime);
-    }
-
     // 设置标记颜色
     public void SetValid(bool isValid)
     {
         if (markerRenderer != null)
         {
             markerRenderer.material.color = isValid ? validColor : invalidColor;
+        }
+    }
+    
+    // 设置指向方向
+    public void SetDirection(Vector3 direction)
+    {
+        if (visualTransform != null)
+        {
+            // 确保方向向量在水平面上
+            direction.y = 0;
+            
+            if (direction.magnitude > 0.01f)
+            {
+                // 计算从(0,1)到目标方向的旋转
+                // 假设箭头默认指向(0,1)，即Unity世界坐标中的Z轴正方向
+                float angle = Vector3.SignedAngle(Vector3.forward, direction, Vector3.up);
+                
+                // 应用旋转：先重置到标准朝向，然后旋转到目标方向
+                visualTransform.localRotation = Quaternion.Euler(90, angle, 0);
+            }
         }
     }
 } 

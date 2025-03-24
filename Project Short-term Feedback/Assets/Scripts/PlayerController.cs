@@ -610,13 +610,23 @@ public class PlayerController : MonoBehaviour
             position.y += 0.05f; // 稍微抬高以避免z-fighting
             landingMarker.transform.position = position;
             
-            // 使用LandingMarker脚本中的SetValid方法设置颜色
+            // 获取LandingMarker组件
             LandingMarker marker = landingMarker.GetComponent<LandingMarker>();
             if (marker != null)
             {
                 // 检查是否有碰撞
                 bool isValidWithoutCollision = isValid && !landingPointCollision && !pathCollision;
                 marker.SetValid(isValidWithoutCollision);
+                
+                // 计算朝向方向（从玩家到目标位置）
+                Vector3 direction = position - transform.position;
+                direction.y = 0; // 确保在水平面上
+                
+                // 设置箭头指向方向
+                if (direction.magnitude > 0.1f)
+                {
+                    marker.SetDirection(direction.normalized);
+                }
             }
         }
     }
