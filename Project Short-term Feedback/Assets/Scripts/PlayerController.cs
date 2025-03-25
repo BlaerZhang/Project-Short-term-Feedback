@@ -984,6 +984,13 @@ public class PlayerController : MonoBehaviour
         {
             UpdateArcIndicator();
         }
+        
+        // 通知所有SpeedSegmentBar更新UI
+        SpeedSegmentBar[] speedBars = FindObjectsOfType<SpeedSegmentBar>();
+        foreach (SpeedSegmentBar bar in speedBars)
+        {
+            bar.ForceUpdateUI(currentSpeed);
+        }
     }
 
     // 获取当前跑步半径
@@ -1580,10 +1587,28 @@ public class PlayerController : MonoBehaviour
         SelectAction(actionType);
     }
 
-    // 新增方法：获取当前选择的动作
+    // 获取当前选择的动作
     public MoveActionType GetCurrentAction()
     {
         return currentAction;
+    }
+
+    // 获取当前速度
+    public float GetCurrentSpeed()
+    {
+        return currentSpeed;
+    }
+    
+    // 获取最小速度
+    public float GetMinSpeed()
+    {
+        return minSpeed;
+    }
+    
+    // 获取最大速度
+    public float GetMaxSpeed()
+    {
+        return maxSpeed;
     }
 
     // 添加查找并触发对应按钮的快捷键方法
