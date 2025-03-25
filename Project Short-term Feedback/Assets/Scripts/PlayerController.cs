@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 using DG.Tweening;
 using DG.Tweening.Core;
 using DG.Tweening.Plugins.Options;
@@ -73,6 +74,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float turnIndicatorWidth = 0.1f;
     [Tooltip("转向方向指示器材质")]
     [SerializeField] private Material turnIndicatorMaterial;
+
+    // 新增UI交互相关变量
+    [Header("UI交互设置")]
+    [SerializeField] private EventSystem eventSystem; // 事件系统引用，用于检测UI点击
 
     // 状态变量
     private MoveActionType currentAction = MoveActionType.None; // 当前选择的动作
@@ -158,6 +163,16 @@ public class PlayerController : MonoBehaviour
                     playerCollisionRadius * 2f,
                     1f
                 );
+            }
+        }
+
+        // 获取EventSystem引用
+        if (eventSystem == null)
+        {
+            eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                Debug.LogWarning("PlayerController: 未找到EventSystem！UI点击检测可能无法正常工作。");
             }
         }
     }
@@ -264,50 +279,35 @@ public class PlayerController : MonoBehaviour
         // Q键选择跑步
         if (Keyboard.current.qKey.wasPressedThisFrame)
         {
-            SelectAction(MoveActionType.Run);
+            TriggerActionButtonByKey(KeyCode.Q);
         }
         // W键选择跳跃
         else if (Keyboard.current.wKey.wasPressedThisFrame)
         {
-            SelectAction(MoveActionType.Jump);
+            TriggerActionButtonByKey(KeyCode.W);
         }
         // E键选择转向
         else if (Keyboard.current.eKey.wasPressedThisFrame)
         {
-            SelectAction(MoveActionType.Turn);
+            TriggerActionButtonByKey(KeyCode.E);
         }
     }
 
-    // 处理目标选择阶段的输入
+    // 处理目标选择阶段的键盘输入，现在改为触发按钮的方法
     private void HandleTargetingInput()
     {
-        // 在目标选择阶段，允许直接按Q或W切换动作类型
-        if (Keyboard.current.qKey.wasPressedThisFrame && currentAction != MoveActionType.Run)
+        // 在目标选择阶段，允许直接按快捷键切换动作类型
+        if (Keyboard.current.qKey.wasPressedThisFrame)
         {
-            // 先取消当前目标选择，再选择新的动作
-            if (gameManager != null)
-            {
-                gameManager.CancelTargetingPhase();
-                SelectAction(MoveActionType.Run);
-            }
+            TriggerActionButtonByKey(KeyCode.Q);
         }
-        else if (Keyboard.current.wKey.wasPressedThisFrame && currentAction != MoveActionType.Jump)
+        else if (Keyboard.current.wKey.wasPressedThisFrame)
         {
-            // 先取消当前目标选择，再选择新的动作
-            if (gameManager != null)
-            {
-                gameManager.CancelTargetingPhase();
-                SelectAction(MoveActionType.Jump);
-            }
+            TriggerActionButtonByKey(KeyCode.W);
         }
-        else if (Keyboard.current.eKey.wasPressedThisFrame && currentAction != MoveActionType.Turn)
+        else if (Keyboard.current.eKey.wasPressedThisFrame)
         {
-            // 先取消当前目标选择，再选择新的动作
-            if (gameManager != null)
-            {
-                gameManager.CancelTargetingPhase();
-                SelectAction(MoveActionType.Turn);
-            }
+            TriggerActionButtonByKey(KeyCode.E);
         }
         else if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
@@ -372,6 +372,12 @@ public class PlayerController : MonoBehaviour
 
     private void HandleRunTargeting()
     {
+        // 如果点击在UI上，跳过处理
+        if (Mouse.current.leftButton.wasPressedThisFrame && IsPointerOverUI())
+        {
+            return;
+        }
+
         // 获取鼠标位置
         Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
         RaycastHit hit;
@@ -410,6 +416,12 @@ public class PlayerController : MonoBehaviour
 
     private void HandleJumpTargeting()
     {
+        // 如果点击在UI上，跳过处理
+        if (Mouse.current.leftButton.wasPressedThisFrame && IsPointerOverUI())
+        {
+            return;
+        }
+
         // 获取鼠标位置
         Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
         RaycastHit hit;
@@ -1324,14 +1336,9 @@ public class PlayerController : MonoBehaviour
     // 处理转向目标选择
     private void HandleTurnTargeting()
     {
-        // ESC键取消当前动作
-        if (Keyboard.current.escapeKey.wasPressedThisFrame)
+        // 如果点击在UI上，跳过处理
+        if (Mouse.current.leftButton.wasPressedThisFrame && IsPointerOverUI())
         {
-            CancelCurrentAction();
-            if (gameManager != null)
-            {
-                gameManager.CancelTargetingPhase();
-            }
             return;
         }
         
@@ -1511,12 +1518,15 @@ public class PlayerController : MonoBehaviour
         }
     }
     
-    // 取消当前动作
-    private void CancelCurrentAction()
+    // 修改取消当前动作方法为公共方法，以便UI按钮调用
+    public void CancelCurrentAction()
     {
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
+        
+        // 重置当前动作
+        currentAction = MoveActionType.None;
     }
 
     // 计算跳跃路径
@@ -1541,5 +1551,62 @@ public class PlayerController : MonoBehaviour
         }
         
         return jumpPath;
+    }
+
+    // 检查是否点击在UI上
+    private bool IsPointerOverUI()
+    {
+        // 检查是否有EventSystem并且指针在UI上
+        return eventSystem != null && eventSystem.IsPointerOverGameObject();
+    }
+
+    // 新增方法：从UI按钮选择动作
+    public void SelectActionFromUI(MoveActionType actionType)
+    {
+        // 如果正在移动，忽略操作
+        if (isMoving || !canMove)
+        {
+            return;
+        }
+
+        // 如果当前在目标选择阶段并且选择了不同的动作
+        if (gameManager != null && gameManager.CurrentState == GameState.Targeting && currentAction != actionType)
+        {
+            // 先取消当前目标选择，再选择新的动作
+            gameManager.CancelTargetingPhase();
+        }
+
+        // 选择指定的动作
+        SelectAction(actionType);
+    }
+
+    // 新增方法：获取当前选择的动作
+    public MoveActionType GetCurrentAction()
+    {
+        return currentAction;
+    }
+
+    // 添加查找并触发对应按钮的快捷键方法
+    private void TriggerActionButtonByKey(KeyCode key)
+    {
+        // 查找所有ActionButtonController
+        ActionButtonController[] buttons = FindObjectsOfType<ActionButtonController>();
+        foreach (ActionButtonController button in buttons)
+        {
+            // 使用反射获取按钮的keyboardShortcut字段值
+            System.Reflection.FieldInfo field = typeof(ActionButtonController).GetField("keyboardShortcut", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                
+            if (field != null)
+            {
+                KeyCode buttonKey = (KeyCode)field.GetValue(button);
+                if (buttonKey == key)
+                {
+                    // 找到匹配的按钮，触发其快捷键逻辑
+                    button.TriggerKeyboardShortcut();
+                    return;
+                }
+            }
+        }
     }
 } 
