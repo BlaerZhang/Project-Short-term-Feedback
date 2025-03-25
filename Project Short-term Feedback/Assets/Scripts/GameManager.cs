@@ -60,7 +60,7 @@ public class GameManager : MonoBehaviour
         }
 
         // 不随场景加载而销毁
-        DontDestroyOnLoad(gameObject);
+        // DontDestroyOnLoad(gameObject);
     }
 
     private void Start()
