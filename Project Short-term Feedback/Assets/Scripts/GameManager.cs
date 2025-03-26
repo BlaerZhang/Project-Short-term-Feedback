@@ -12,6 +12,13 @@ public enum GameState
     Paused      // 游戏暂停
 }
 
+/// <summary>
+/// 游戏状态变化委托
+/// </summary>
+/// <param name="newState">新状态</param>
+/// <param name="previousState">先前状态</param>
+public delegate void GameStateChangedHandler(GameState newState, GameState previousState);
+
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
@@ -45,6 +52,10 @@ public class GameManager : MonoBehaviour
 
     // 当前游戏状态
     public GameState CurrentState { get; private set; } = GameState.Planning;
+    private GameState previousState;
+
+    // 游戏状态变化事件，允许外部系统订阅
+    public event GameStateChangedHandler OnGameStateChanged;
 
     private void Awake()
     {
@@ -103,6 +114,9 @@ public class GameManager : MonoBehaviour
                 break;
         }
 
+        // 保存前一个状态
+        previousState = CurrentState;
+
         // 进入新状态
         CurrentState = newState;
         switch (newState)
@@ -129,14 +143,14 @@ public class GameManager : MonoBehaviour
         }
 
         // 通知系统状态变化
-        OnGameStateChanged(newState);
+        NotifyGameStateChanged(newState, previousState);
     }
 
     // 游戏状态变化时的处理
-    private void OnGameStateChanged(GameState newState)
+    private void NotifyGameStateChanged(GameState newState, GameState previousState)
     {
-        // 通知其他系统游戏状态变化
-        // 可以使用事件系统或直接调用
+        // 触发事件通知外部系统
+        OnGameStateChanged?.Invoke(newState, previousState);
         
         // 通知玩家控制器
         if (playerController != null)

@@ -118,6 +118,9 @@ public class PlayerController : MonoBehaviour
     [Header("资源设置")]
     [SerializeField] private ActionResourceConfig resourceConfig; // 资源消耗配置
 
+    // 在类声明下面添加呼吸管理器引用
+    private BreathManager breathManager;
+
     private void Awake()
     {
         mainCamera = Camera.main;
@@ -234,6 +237,13 @@ public class PlayerController : MonoBehaviour
         
         // 输出碰撞设置信息
         Debug.LogFormat("PlayerController: 碰撞半径={0}, 容差距离={1}", playerCollisionRadius, collisionToleranceDistance);
+
+        // 获取呼吸管理器引用
+        breathManager = BreathManager.Instance;
+        if (breathManager == null)
+        {
+            Debug.LogWarning("PlayerController: 未找到BreathManager！呼吸系统功能将无法使用。");
+        }
     }
 
     private void Update()
@@ -760,6 +770,13 @@ public class PlayerController : MonoBehaviour
         {
             gameManager.StartExecutionPhase();
         }
+        
+        // 累积呼吸进度（1/1/2取决于速度档位）- 移动到游戏状态变更后
+        if (breathManager != null)
+        {
+            int breathProgress = (currentSpeed >= 3) ? 2 : 1;
+            breathManager.AddBreathProgress(breathProgress);
+        }
 
         // 启动移动协程
         StartCoroutine(RunningCoroutine(movementPath));
@@ -873,6 +890,12 @@ public class PlayerController : MonoBehaviour
         if (gameManager != null)
         {
             gameManager.StartExecutionPhase();
+        }
+        
+        // 累积呼吸进度（固定为1点）- 移动到游戏状态变更后
+        if (breathManager != null)
+        {
+            breathManager.AddBreathProgress(1);
         }
 
         // 启动跳跃协程
@@ -1749,6 +1772,19 @@ public class PlayerController : MonoBehaviour
         
         // 获取该动作在当前速度下的资源效果
         Dictionary<ResourceType, float> effects = resourceConfig.GetResourceEffects(actionType, speedLevel);
+        
+        // 应用Rush呼吸状态效果（奔跑时氧气消耗-1）
+        if (actionType == MoveActionType.Run && breathManager != null && 
+            breathManager.GetCurrentState() == BreathState.Rush)
+        {
+            // 检查是否有氧气消耗
+            if (effects.ContainsKey(ResourceType.Oxygen))
+            {
+                // 如果有氧气消耗，减少1点（但不能低于0）
+                effects[ResourceType.Oxygen] = Mathf.Max(0, effects[ResourceType.Oxygen] + 1);
+                Debug.Log("Rush呼吸状态效果：奔跑氧气消耗-1");
+            }
+        }
         
         if (effects.Count > 0)
         {
