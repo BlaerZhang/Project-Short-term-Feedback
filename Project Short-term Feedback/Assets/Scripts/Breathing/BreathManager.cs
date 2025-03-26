@@ -445,4 +445,24 @@ public class BreathManager : MonoBehaviour
                 return "";
         }
     }
+
+    // 在类中添加一个专门用于调试的设置呼吸进度方法
+    #if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>
+    /// 设置呼吸进度（仅用于开发调试）
+    /// </summary>
+    public void SetBreathProgressForDebug(int progress)
+    {
+        // 确保进度在有效范围内
+        progress = Mathf.Clamp(progress, 0, GetCurrentCycle());
+        
+        // 设置进度
+        currentProgress = progress;
+        
+        // 触发进度变化事件
+        OnBreathProgressChanged?.Invoke(currentProgress, GetCurrentCycle());
+        
+        Debug.Log($"BreathManager: 调试功能 - 呼吸进度设置为 {currentProgress}/{GetCurrentCycle()}");
+    }
+    #endif
 } 

@@ -202,4 +202,25 @@ public class ResourceManager : MonoBehaviour
         
         return allSuccessful;
     }
+
+    // 添加公共版本的SetResourceValue方法供开发者工具使用
+    #if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>
+    /// 直接设置资源值（仅用于开发调试）
+    /// </summary>
+    public void DebugSetResourceValue(ResourceType type, float value)
+    {
+        // 确保值在有效范围内
+        float maxValue = GetResourceMaxValue(type);
+        value = Mathf.Clamp(value, 0, maxValue);
+        
+        // 设置资源值
+        SetResourceValue(type, value);
+        
+        // 触发资源变化事件
+        OnResourceChanged?.Invoke(type, value, maxValue);
+        
+        Debug.Log($"ResourceManager: 调试功能 - {type}设置为 {value}/{maxValue}");
+    }
+    #endif
 } 

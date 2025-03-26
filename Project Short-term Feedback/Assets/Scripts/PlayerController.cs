@@ -121,6 +121,46 @@ public class PlayerController : MonoBehaviour
     // 在类声明下面添加呼吸管理器引用
     private BreathManager breathManager;
 
+    // 添加转向动作控制变量
+    private bool turnActionEnabled = false; // 默认禁用转向动作
+
+    #if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 用于开发调试的功能
+
+        /// <summary>
+        /// 设置角色速度（调试专用）
+        /// </summary>
+        public void SetSpeed(int speedLevel)
+        {
+            // 确保速度在有效范围内
+            speedLevel = Mathf.Clamp(speedLevel, 1, 3);
+            
+            // 设置速度
+            ChangeSpeed(speedLevel);
+            
+            Debug.Log($"PlayerController: 调试功能 - 速度设置为 {speedLevel}档");
+        }
+
+        /// <summary>
+        /// 启用或禁用转向动作
+        /// </summary>
+        public void EnableTurningAction(bool enable)
+        {
+            // 此处实现转向动作的启用/禁用逻辑
+            turnActionEnabled = enable;
+            
+            Debug.Log($"PlayerController: 调试功能 - 转向动作已{(enable ? "启用" : "禁用")}");
+        }
+
+        /// <summary>
+        /// 获取转向动作是否启用
+        /// </summary>
+        public bool IsTurningActionEnabled()
+        {
+            return turnActionEnabled;
+        }
+    #endif
+
     private void Awake()
     {
         mainCamera = Camera.main;
