@@ -8,6 +8,9 @@ using DG.Tweening.Core;
 using DG.Tweening.Plugins.Options;
 using DG.Tweening.Plugins;
 
+// 添加资源系统的引用
+using System;
+
 // 移动动作类型枚举
 public enum MoveActionType
 {
@@ -20,10 +23,28 @@ public enum MoveActionType
 public class PlayerController : MonoBehaviour
 {
     [Header("角色属性")]
-    [SerializeField] private float maxSpeed = 5f;      // 角色最大移动速度
-    [SerializeField] private float minSpeed = 1f;      // 角色最小移动速度
-    [SerializeField] private float currentSpeed = 3f;  // 当前速度
-
+    [Tooltip("最大速度")]
+    [Range(1, 3)] // 修改速度范围为1-3
+    [SerializeField] private float maxSpeed = 3f;      // 修改为最大3档
+    [Tooltip("最小速度")]
+    [Range(1, 3)] // 修改速度范围为1-3
+    [SerializeField] private float minSpeed = 1f;      // 保持最小1档
+    [Tooltip("当前速度")]
+    [Range(1, 3)] // 修改速度范围为1-3
+    [SerializeField] private float currentSpeed = 2f;  // 默认中档速度
+    [Tooltip("基础动作效果速度系数（用于保持原1-5档的体验）")]
+    [SerializeField] private float speedScaleFactor = 1.67f; // 5/3 = 1.67，将1-3映射到1-5
+    [Tooltip("是否已经在当前回合切换过速度")]
+    private bool hasChangedSpeedThisRound = false;      // 速度切换标志
+    
+    [Header("基础运动参数")]
+    [SerializeField] private float baseRunDistance = 3f; // 基础跑步距离
+    [SerializeField] private float baseRunSpeed = 5f;    // 基础跑步速度
+    [SerializeField] private float baseJumpHeight = 2f;  // 基础跳跃高度
+    [SerializeField] private float baseJumpDistance = 4f; // 基础跳跃距离
+    [SerializeField] private float minJumpHeightFactor = 0.5f; // 最小跳跃高度系数
+    [SerializeField] private float maxJumpHeightFactor = 1.5f; // 最大跳跃高度系数
+    
     [Header("角色碰撞设置")]
     [SerializeField] private float playerCollisionRadius = 0.5f; // 角色碰撞半径
     [SerializeField] private float collisionToleranceDistance = 0.1f; // 碰撞容差距离
@@ -93,6 +114,9 @@ public class PlayerController : MonoBehaviour
     private bool landingPointCollision = false; // 落点是否发生碰撞
     private bool pathCollision = false;  // 路径是否发生碰撞
     private GameState gameState;         // 游戏状态
+
+    [Header("资源设置")]
+    [SerializeField] private ActionResourceConfig resourceConfig; // 资源消耗配置
 
     private void Awake()
     {
@@ -266,11 +290,11 @@ public class PlayerController : MonoBehaviour
         }
         else if (Keyboard.current.digit2Key.wasPressedThisFrame)
         {
-            ChangeSpeed(3);
+            ChangeSpeed(2);
         }
         else if (Keyboard.current.digit3Key.wasPressedThisFrame)
         {
-            ChangeSpeed(5);
+            ChangeSpeed(3);
         }
     }
 
@@ -691,6 +715,9 @@ public class PlayerController : MonoBehaviour
     // 开始跑步
     private void StartRunning(Vector3 targetPoint)
     {
+        // 添加资源消耗
+        ConsumeActionResources(MoveActionType.Run, currentSpeed);
+        
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
@@ -817,6 +844,9 @@ public class PlayerController : MonoBehaviour
     // 开始跳跃
     private void StartJumping(Vector3 targetPoint)
     {
+        // 添加资源消耗
+        ConsumeActionResources(MoveActionType.Jump, currentSpeed);
+        
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
@@ -898,6 +928,19 @@ public class PlayerController : MonoBehaviour
             
         // 更新当前朝向
         currentDirection = jumpDirection;
+        
+        // 跳跃结束后自动将速度设置为1档（跳跃特性）
+        float oldSpeed = currentSpeed;
+        currentSpeed = 1f;
+        
+        // 通知UI更新
+        SpeedSegmentBar[] speedBars = FindObjectsOfType<SpeedSegmentBar>();
+        foreach (SpeedSegmentBar bar in speedBars)
+        {
+            bar.ForceUpdateUI(currentSpeed);
+        }
+        
+        Debug.Log($"跳跃完成，速度从 {oldSpeed} 自动重置为 1");
             
         // 重置状态 - 移除设置IsJumping为false的代码，因为使用了Trigger
         isMoving = false;
@@ -977,19 +1020,72 @@ public class PlayerController : MonoBehaviour
     // 改变角色速度
     public void ChangeSpeed(float newSpeed)
     {
-        currentSpeed = Mathf.Clamp(newSpeed, minSpeed, maxSpeed);
-        
-        // 如果处于目标选择阶段，更新圆弧指示器
-        if (gameManager != null && gameManager.CurrentState == GameState.Targeting)
+        // 如果不在Planning阶段，不允许切换速度
+        if (gameManager != null && gameManager.CurrentState != GameState.Planning)
         {
-            UpdateArcIndicator();
+            Debug.Log("只能在计划阶段切换速度");
+            return;
         }
         
-        // 通知所有SpeedSegmentBar更新UI
-        SpeedSegmentBar[] speedBars = FindObjectsOfType<SpeedSegmentBar>();
-        foreach (SpeedSegmentBar bar in speedBars)
+        // 如果已经切换过速度，不允许再次切换
+        if (hasChangedSpeedThisRound)
         {
-            bar.ForceUpdateUI(currentSpeed);
+            Debug.Log("当前回合已经切换过速度");
+            return;
+        }
+        
+        // 如果目标速度与当前速度相同，不做任何操作
+        if (Mathf.Approximately(newSpeed, currentSpeed))
+        {
+            return;
+        }
+        
+        // 计算速度差和精力消耗
+        int speedDifference = Mathf.Abs(Mathf.RoundToInt(newSpeed - currentSpeed));
+        float energyCost = (speedDifference == 1) ? 1f : 3f;
+        
+        // 检查是否有足够的精力
+        if (ResourceManager.Instance != null)
+        {
+            float currentEnergy = ResourceManager.Instance.GetResourceValue(ResourceType.Energy);
+            if (currentEnergy < energyCost)
+            {
+                Debug.Log($"精力不足，无法切换速度。需要: {energyCost}, 当前: {currentEnergy}");
+                return;
+            }
+            
+            // 扣除精力
+            bool success = ResourceManager.Instance.ChangeResource(ResourceType.Energy, -energyCost);
+            if (!success)
+            {
+                Debug.Log("切换速度失败");
+                return;
+            }
+            
+            // 设置新速度
+            currentSpeed = Mathf.Clamp(newSpeed, minSpeed, maxSpeed);
+            
+            // 标记已切换速度
+            hasChangedSpeedThisRound = true;
+            
+            Debug.Log($"速度已切换到 {currentSpeed} 档，消耗精力 {energyCost}");
+            
+            // 如果处于目标选择阶段，更新圆弧指示器
+            if (gameManager != null && gameManager.CurrentState == GameState.Targeting)
+            {
+                UpdateArcIndicator();
+            }
+            
+            // 通知所有SpeedSegmentBar更新UI
+            SpeedSegmentBar[] speedBars = FindObjectsOfType<SpeedSegmentBar>();
+            foreach (SpeedSegmentBar bar in speedBars)
+            {
+                bar.ForceUpdateUI(currentSpeed);
+            }
+        }
+        else
+        {
+            Debug.LogError("ResourceManager未找到，无法切换速度");
         }
     }
 
@@ -1029,6 +1125,8 @@ public class PlayerController : MonoBehaviour
                 HideLandingMarker();
                 // 重置当前动作
                 currentAction = MoveActionType.None;
+                // 重置速度切换标志
+                hasChangedSpeedThisRound = false;
                 break;
 
             case GameState.Targeting:
@@ -1337,7 +1435,7 @@ public class PlayerController : MonoBehaviour
                 result += LayerMask.LayerToName(i) + ", ";
             }
         }
-        return result.TrimEnd(' ', ',');
+        return result.TrimEnd(',', ' ');
     }
 
     // 处理转向目标选择
@@ -1416,6 +1514,9 @@ public class PlayerController : MonoBehaviour
     // 开始执行转向
     private void StartTurning(Vector3 targetDirection)
     {
+        // 添加资源消耗
+        ConsumeActionResources(MoveActionType.Turn, currentSpeed);
+        
         // 隐藏路径预览
         HidePathPreview();
         
@@ -1633,5 +1734,63 @@ public class PlayerController : MonoBehaviour
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 执行动作的资源消耗
+    /// </summary>
+    private void ConsumeActionResources(MoveActionType actionType, float speed)
+    {
+        if (resourceConfig == null || ResourceManager.Instance == null)
+            return;
+            
+        // 将速度值取整为速度档位（1-3）
+        int speedLevel = Mathf.Clamp(Mathf.RoundToInt(speed), 1, 3);
+        
+        // 获取该动作在当前速度下的资源效果
+        Dictionary<ResourceType, float> effects = resourceConfig.GetResourceEffects(actionType, speedLevel);
+        
+        if (effects.Count > 0)
+        {
+            // 应用资源效果
+            ResourceManager.Instance.ChangeMultipleResources(effects);
+            
+            // 调试输出
+            foreach (var effect in effects)
+            {
+                Debug.Log($"动作: {actionType}, 速度: {speedLevel}, 资源变化: {effect.Key} {effect.Value}");
+            }
+        }
+    }
+    
+    
+    // 修改计算跑步路径距离和时间的方法，加入速度系数
+    private float CalculateRunDistance(float speed)
+    {
+        // 应用速度系数，保持原1-5档的体验
+        float scaledSpeed = speed * speedScaleFactor; 
+        return baseRunDistance * scaledSpeed;
+    }
+    
+    private float CalculateRunTime(float distance, float speed)
+    {
+        // 应用速度系数，保持原1-5档的体验
+        float scaledSpeed = speed * speedScaleFactor;
+        return distance / (baseRunSpeed * scaledSpeed);
+    }
+    
+    // 修改计算跳跃高度和距离的方法，加入速度系数
+    private float CalculateJumpHeight(float speed)
+    {
+        // 应用速度系数，保持原1-5档的体验
+        float scaledSpeed = speed * speedScaleFactor;
+        return baseJumpHeight * Mathf.Lerp(minJumpHeightFactor, maxJumpHeightFactor, (scaledSpeed - 1) / 4f);
+    }
+    
+    private float CalculateJumpDistance(float speed)
+    {
+        // 应用速度系数，保持原1-5档的体验
+        float scaledSpeed = speed * speedScaleFactor;
+        return baseJumpDistance * scaledSpeed;
     }
 } 
