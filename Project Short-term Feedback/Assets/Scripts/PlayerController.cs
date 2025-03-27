@@ -1840,8 +1840,9 @@ public class PlayerController : MonoBehaviour
             if (effects.ContainsKey(ResourceType.Oxygen))
             {
                 // 如果有氧气消耗，减少1点（但不能低于0）
-                effects[ResourceType.Oxygen] = Mathf.Max(0, effects[ResourceType.Oxygen] + 1);
-                Debug.Log("Rush呼吸状态效果：奔跑氧气消耗-1");
+                float currentOxygenCost = effects[ResourceType.Oxygen];
+                effects[ResourceType.Oxygen] = Mathf.Min(0, currentOxygenCost + 1); 
+                Debug.Log($"Rush呼吸状态效果：奔跑氧气消耗-1，从 {currentOxygenCost} 减少到 {effects[ResourceType.Oxygen]}");
             }
         }
         

@@ -18,6 +18,9 @@ public class DeveloperToolsManager : MonoBehaviour
     [SerializeField] private Vector2 windowSize = new Vector2(400f, 500f);
     [SerializeField] private float windowAlpha = 1.0f;
 
+    [Header("References")]
+    [SerializeField] private ActionButtonController turningActionButton;
+
     // 资源引用
     private ResourceManager resourceManager;
     private BreathManager breathManager;
@@ -49,9 +52,6 @@ public class DeveloperToolsManager : MonoBehaviour
     // 日志记录
     private List<string> actionLogs = new List<string>();
     private int maxLogEntries = 10;
-
-    // 转向按钮引用
-    private ActionButtonController turningActionButton;
 
     private void Awake()
     {
@@ -86,9 +86,6 @@ public class DeveloperToolsManager : MonoBehaviour
         breathManager = BreathManager.Instance;
         playerController = FindObjectOfType<PlayerController>();
         gameManager = GameManager.Instance;
-
-        // 查找转向按钮
-        FindTurningActionButton();
 
         // 初始化数据
         RefreshResourceValues();
@@ -127,7 +124,8 @@ public class DeveloperToolsManager : MonoBehaviour
         {
             // 窗口样式
             windowStyle = new GUIStyle(GUI.skin.window);
-            windowStyle.normal.background = MakeTexture(2, 2, new Color(0.1f, 0.1f, 0.1f, windowAlpha));
+            windowStyle.normal.background = MakeTexture(2, 2, new Color(0.1f, 0.1f, 0.1f, 0.9f));
+            windowStyle.onNormal.background = windowStyle.normal.background; // 确保选中状态使用相同的背景
 
             // 标题样式
             headerStyle = new GUIStyle(GUI.skin.label);
@@ -215,103 +213,112 @@ public class DeveloperToolsManager : MonoBehaviour
             // 精力调整
             GUILayout.BeginHorizontal();
             GUILayout.Label("Energy:", sliderLabelStyle);
-            
-            // 使用更简单的滑动条方式
-            float newEnergyValue = energyValue;
-            GUI.changed = false;
-            newEnergyValue = GUILayout.HorizontalSlider(
-                newEnergyValue, 
-                0, 
-                resourceManager.GetResourceMaxValue(ResourceType.Energy),
-                GUILayout.ExpandWidth(true)
-            );
-            bool sliderChanged = GUI.changed;
-            
-            string energyString = GUILayout.TextField(
-                energyValue.ToString("F0"), 
-                GUILayout.Width(50)
-            );
-            
-            if (float.TryParse(energyString, out float parsedEnergy))
+
+            // 减少按钮
+            if (GUILayout.Button("-10", GUILayout.Width(40)))
             {
-                newEnergyValue = parsedEnergy;
-                sliderChanged = true;
-            }
-            
-            if (sliderChanged && newEnergyValue != energyValue)
-            {
-                energyValue = newEnergyValue;
+                energyValue = Mathf.Max(0, energyValue - 10);
                 resourceManager.DebugSetResourceValue(ResourceType.Energy, energyValue);
                 AddLog($"Energy set to: {energyValue}");
             }
+            if (GUILayout.Button("-1", GUILayout.Width(30)))
+            {
+                energyValue = Mathf.Max(0, energyValue - 1);
+                resourceManager.DebugSetResourceValue(ResourceType.Energy, energyValue);
+                AddLog($"Energy set to: {energyValue}");
+            }
+
+            // 显示当前值
+            GUILayout.Label($"{energyValue:F0}/{resourceManager.GetResourceMaxValue(ResourceType.Energy)}", GUILayout.Width(70));
+
+            // 增加按钮
+            if (GUILayout.Button("+1", GUILayout.Width(30)))
+            {
+                energyValue = Mathf.Min(resourceManager.GetResourceMaxValue(ResourceType.Energy), energyValue + 1);
+                resourceManager.DebugSetResourceValue(ResourceType.Energy, energyValue);
+                AddLog($"Energy set to: {energyValue}");
+            }
+            if (GUILayout.Button("+10", GUILayout.Width(40)))
+            {
+                energyValue = Mathf.Min(resourceManager.GetResourceMaxValue(ResourceType.Energy), energyValue + 10);
+                resourceManager.DebugSetResourceValue(ResourceType.Energy, energyValue);
+                AddLog($"Energy set to: {energyValue}");
+            }
+
             GUILayout.EndHorizontal();
             
             // 氧气调整
             GUILayout.BeginHorizontal();
             GUILayout.Label("Oxygen:", sliderLabelStyle);
-            
-            // 使用更简单的滑动条方式
-            float newOxygenValue = oxygenValue;
-            GUI.changed = false;
-            newOxygenValue = GUILayout.HorizontalSlider(
-                newOxygenValue, 
-                0, 
-                resourceManager.GetResourceMaxValue(ResourceType.Oxygen),
-                GUILayout.ExpandWidth(true)
-            );
-            sliderChanged = GUI.changed;
-            
-            string oxygenString = GUILayout.TextField(
-                oxygenValue.ToString("F0"), 
-                GUILayout.Width(50)
-            );
-            
-            if (float.TryParse(oxygenString, out float parsedOxygen))
+
+            // 减少按钮
+            if (GUILayout.Button("-10", GUILayout.Width(40)))
             {
-                newOxygenValue = parsedOxygen;
-                sliderChanged = true;
-            }
-            
-            if (sliderChanged && newOxygenValue != oxygenValue)
-            {
-                oxygenValue = newOxygenValue;
+                oxygenValue = Mathf.Max(0, oxygenValue - 10);
                 resourceManager.DebugSetResourceValue(ResourceType.Oxygen, oxygenValue);
                 AddLog($"Oxygen set to: {oxygenValue}");
             }
+            if (GUILayout.Button("-1", GUILayout.Width(30)))
+            {
+                oxygenValue = Mathf.Max(0, oxygenValue - 1);
+                resourceManager.DebugSetResourceValue(ResourceType.Oxygen, oxygenValue);
+                AddLog($"Oxygen set to: {oxygenValue}");
+            }
+
+            // 显示当前值
+            GUILayout.Label($"{oxygenValue:F0}/{resourceManager.GetResourceMaxValue(ResourceType.Oxygen)}", GUILayout.Width(70));
+
+            // 增加按钮
+            if (GUILayout.Button("+1", GUILayout.Width(30)))
+            {
+                oxygenValue = Mathf.Min(resourceManager.GetResourceMaxValue(ResourceType.Oxygen), oxygenValue + 1);
+                resourceManager.DebugSetResourceValue(ResourceType.Oxygen, oxygenValue);
+                AddLog($"Oxygen set to: {oxygenValue}");
+            }
+            if (GUILayout.Button("+10", GUILayout.Width(40)))
+            {
+                oxygenValue = Mathf.Min(resourceManager.GetResourceMaxValue(ResourceType.Oxygen), oxygenValue + 10);
+                resourceManager.DebugSetResourceValue(ResourceType.Oxygen, oxygenValue);
+                AddLog($"Oxygen set to: {oxygenValue}");
+            }
+
             GUILayout.EndHorizontal();
             
             // 压力调整
             GUILayout.BeginHorizontal();
             GUILayout.Label("Pressure:", sliderLabelStyle);
-            
-            // 使用更简单的滑动条方式
-            float newPressureValue = pressureValue;
-            GUI.changed = false;
-            newPressureValue = GUILayout.HorizontalSlider(
-                newPressureValue, 
-                0, 
-                resourceManager.GetResourceMaxValue(ResourceType.Pressure),
-                GUILayout.ExpandWidth(true)
-            );
-            sliderChanged = GUI.changed;
-            
-            string pressureString = GUILayout.TextField(
-                pressureValue.ToString("F0"), 
-                GUILayout.Width(50)
-            );
-            
-            if (float.TryParse(pressureString, out float parsedPressure))
+
+            // 减少按钮
+            if (GUILayout.Button("-10", GUILayout.Width(40)))
             {
-                newPressureValue = parsedPressure;
-                sliderChanged = true;
-            }
-            
-            if (sliderChanged && newPressureValue != pressureValue)
-            {
-                pressureValue = newPressureValue;
+                pressureValue = Mathf.Max(0, pressureValue - 10);
                 resourceManager.DebugSetResourceValue(ResourceType.Pressure, pressureValue);
                 AddLog($"Pressure set to: {pressureValue}");
             }
+            if (GUILayout.Button("-1", GUILayout.Width(30)))
+            {
+                pressureValue = Mathf.Max(0, pressureValue - 1);
+                resourceManager.DebugSetResourceValue(ResourceType.Pressure, pressureValue);
+                AddLog($"Pressure set to: {pressureValue}");
+            }
+
+            // 显示当前值
+            GUILayout.Label($"{pressureValue:F0}/{resourceManager.GetResourceMaxValue(ResourceType.Pressure)}", GUILayout.Width(70));
+
+            // 增加按钮
+            if (GUILayout.Button("+1", GUILayout.Width(30)))
+            {
+                pressureValue = Mathf.Min(resourceManager.GetResourceMaxValue(ResourceType.Pressure), pressureValue + 1);
+                resourceManager.DebugSetResourceValue(ResourceType.Pressure, pressureValue);
+                AddLog($"Pressure set to: {pressureValue}");
+            }
+            if (GUILayout.Button("+10", GUILayout.Width(40)))
+            {
+                pressureValue = Mathf.Min(resourceManager.GetResourceMaxValue(ResourceType.Pressure), pressureValue + 10);
+                resourceManager.DebugSetResourceValue(ResourceType.Pressure, pressureValue);
+                AddLog($"Pressure set to: {pressureValue}");
+            }
+
             GUILayout.EndHorizontal();
         }
         else
@@ -367,41 +374,25 @@ public class DeveloperToolsManager : MonoBehaviour
             GUILayout.Label("Breath Progress:", sliderLabelStyle);
             int cycle = breathManager.GetCurrentCycle();
 
-            // 使用同样的改进方式
-            int newBreathProgress = breathProgress;
-            GUI.changed = false;
-            newBreathProgress = Mathf.RoundToInt(GUILayout.HorizontalSlider(
-                newBreathProgress, 
-                0, 
-                cycle,
-                GUILayout.ExpandWidth(true)
-            ));
-            bool sliderChanged = GUI.changed;
-
-            string progressString = GUILayout.TextField(
-                $"{breathProgress}/{cycle}", 
-                GUILayout.Width(50)
-            );
-
-            string[] progressParts = progressString.Split('/');
-            if (progressParts.Length > 0 && int.TryParse(progressParts[0], out int parsedProgress))
+            // 减少按钮
+            if (GUILayout.Button("-1", GUILayout.Width(30)))
             {
-                newBreathProgress = parsedProgress;
-                sliderChanged = true;
+                breathProgress = Mathf.Max(0, breathProgress - 1);
+                breathManager.SetBreathProgressForDebug(breathProgress);
+                AddLog($"Breath progress set to: {breathProgress}/{cycle}");
             }
 
-            if (sliderChanged && newBreathProgress != breathProgress)
+            // 显示当前值
+            GUILayout.Label($"{breathProgress}/{cycle}", GUILayout.Width(70));
+
+            // 增加按钮
+            if (GUILayout.Button("+1", GUILayout.Width(30)))
             {
-                breathProgress = newBreathProgress;
-                
-                #if UNITY_EDITOR || DEVELOPMENT_BUILD
-                if (breathManager != null)
-                {
-                    breathManager.SetBreathProgressForDebug(breathProgress);
-                    AddLog($"Breath progress set to: {breathProgress}/{cycle}");
-                }
-                #endif
+                breathProgress = Mathf.Min(cycle, breathProgress + 1);
+                breathManager.SetBreathProgressForDebug(breathProgress);
+                AddLog($"Breath progress set to: {breathProgress}/{cycle}");
             }
+
             GUILayout.EndHorizontal();
             
             // 触发呼吸按钮

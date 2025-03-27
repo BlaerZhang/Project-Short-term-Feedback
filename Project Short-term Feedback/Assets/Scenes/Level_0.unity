@@ -12669,6 +12669,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 4270182722998494241, guid: 6f316384fbca4be42bbf4dec99d3a20f, type: 3}
+      propertyPath: turningActionButton
+      value: 
+      objectReference: {fileID: 643826022}
     - target: {fileID: 5864276048121742128, guid: 6f316384fbca4be42bbf4dec99d3a20f, type: 3}
       propertyPath: m_Name
       value: DeveloperToolsPrefab
