@@ -135,10 +135,29 @@ public class PlayerController : MonoBehaviour
             // 确保速度在有效范围内
             speedLevel = Mathf.Clamp(speedLevel, 1, 3);
             
-            // 设置速度
-            ChangeSpeed(speedLevel);
+            // 直接设置速度，绕过所有游戏规则限制（不消耗精力，不检查回合限制）
+            currentSpeed = speedLevel;
             
-            Debug.Log($"PlayerController: 调试功能 - 速度设置为 {speedLevel}档");
+            // 更新速度相关的视觉效果和状态
+            UpdateSpeedVisuals();
+            
+            Debug.Log($"PlayerController: Debug function - Speed directly set to {speedLevel}");
+        }
+
+        /// <summary>
+        /// 更新与速度相关的视觉效果
+        /// </summary>
+        private void UpdateSpeedVisuals()
+        {
+            // 更新速度相关的UI或视觉效果
+            // 例如更新速度段显示器等
+            
+            // 查找并通知所有SpeedSegmentBar
+            SpeedSegmentBar[] speedBars = FindObjectsOfType<SpeedSegmentBar>();
+            foreach (var bar in speedBars)
+            {
+                bar.ForceUpdateUI(currentSpeed);
+            }
         }
 
         /// <summary>
@@ -149,7 +168,7 @@ public class PlayerController : MonoBehaviour
             // 此处实现转向动作的启用/禁用逻辑
             turnActionEnabled = enable;
             
-            Debug.Log($"PlayerController: 调试功能 - 转向动作已{(enable ? "启用" : "禁用")}");
+            Debug.Log($"PlayerController: Debug function - Turn action {(enable ? "enabled" : "disabled")}");
         }
 
         /// <summary>

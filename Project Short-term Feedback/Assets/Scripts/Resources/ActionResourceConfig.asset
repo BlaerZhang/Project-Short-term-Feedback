@@ -33,3 +33,23 @@ MonoBehaviour:
         amount: -4
       - resourceType: 2
         amount: 1
+  - actionType: 2
+    speedConfigs:
+    - speedLevel: 1
+      resourceEffects:
+      - resourceType: 1
+        amount: -4
+      - resourceType: 2
+        amount: 2
+    - speedLevel: 2
+      resourceEffects:
+      - resourceType: 1
+        amount: -3
+      - resourceType: 2
+        amount: 2
+    - speedLevel: 3
+      resourceEffects:
+      - resourceType: 1
+        amount: -2
+      - resourceType: 2
+        amount: 1

@@ -1736,7 +1736,7 @@ MonoBehaviour:
   descriptionText: {fileID: 2095669237}
   shortcutText: {fileID: 1385254150}
   followCursorOffset: 20
-  followCursor: 0
+  followCursor: 1
 --- !u!114 &70853982
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -23965,11 +23965,11 @@ RectTransform:
   - {fileID: 327422818}
   m_Father: {fileID: 2007835316}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 1, y: 1}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
-  m_Pivot: {x: 1, y: 1}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 25, y: 25}
+  m_SizeDelta: {x: 500, y: 154}
+  m_Pivot: {x: 0, y: 0}
 --- !u!114 &1293861149
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -24019,7 +24019,7 @@ MonoBehaviour:
     m_Right: 25
     m_Top: 0
     m_Bottom: 5
-  m_ChildAlignment: 2
+  m_ChildAlignment: 6
   m_Spacing: -20
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
@@ -24367,11 +24367,15 @@ MonoBehaviour:
   steadyDescription: '<color=orange>Cycle: 2</color>
 
     <color=green>Cost 1 Energy
-    Per Breath</color>'
+    Per Breath</color>
+
+    <color=red>You can deal 1 more stress when you breathe</color>'
   coreDescription: '<color=orange>Cycle: 2</color>
 
     <color=green>Cost 1 Energy
-    Per Breath</color>'
+    Per Breath</color>
+
+    <color=blue>Add 2 Oxygen Cards to your breath deck</color>'
   breatheText: {fileID: 1819721465}
   breatheTextDuration: 2
   playerController: {fileID: 232871196}
@@ -31997,11 +32001,17 @@ MonoBehaviour:
   selectedColor: {r: 0.80392164, g: 0.3019608, b: 0.098039225, a: 1}
   hoverColor: {r: 0.7529412, g: 0.7529412, b: 0.7529412, a: 1}
   actionName: Run
-  actionDescription: '-2/3/4 Oxygen
+  actionDescription: '<color=blue>- 2 / 3 / 4 Oxygen</color>
 
-    +2/1/1 Pressure
+    <color=red>+ 2
+    / 1 / 1 Pressure</color>
 
-    +1/1/2 Breath Progression'
+    <color=orange>+ 1 / 1 / 2 Cycle</color>
+
+
+
+
+'
   tooltipDelay: 0
   tooltipController: {fileID: 70853981}
 --- !u!1 &1716804550
@@ -33196,11 +33206,12 @@ MonoBehaviour:
   selectedColor: {r: 0.80392164, g: 0.3019608, b: 0.098039225, a: 1}
   hoverColor: {r: 0.7529412, g: 0.7529412, b: 0.7529412, a: 1}
   actionName: Jump
-  actionDescription: '-4/3/2 Oxygen
+  actionDescription: '<color=blue>- 4 / 3 / 2 Oxygen</color>
 
-    +2/1/1 Pressure
+    <color=red>+ 2
+    / 1 / 1 Pressure</color>
 
-    +1 Breath Progression
+    <color=orange>+ 1 Cycle</color>
 
     <color=red><b>Reset
     Speed to 1</b></color>'

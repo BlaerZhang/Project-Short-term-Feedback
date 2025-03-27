@@ -3,20 +3,20 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 开发者工具管理器 - 用于游戏内调试
+/// Developer Tools Manager - For in-game debugging
 /// </summary>
 public class DeveloperToolsManager : MonoBehaviour
 {
     // 单例实例
     public static DeveloperToolsManager Instance { get; private set; }
 
-    [Header("触发设置")]
+    [Header("Trigger Settings")]
     [SerializeField] private KeyCode toggleKey = KeyCode.F1;
     [SerializeField] private bool requireControlKey = true;
 
-    [Header("窗口设置")]
+    [Header("Window Settings")]
     [SerializeField] private Vector2 windowSize = new Vector2(400f, 500f);
-    [SerializeField] private float windowAlpha = 0.9f;
+    [SerializeField] private float windowAlpha = 1.0f;
 
     // 资源引用
     private ResourceManager resourceManager;
@@ -59,7 +59,7 @@ public class DeveloperToolsManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // DontDestroyOnLoad(gameObject); // 保持注释状态，避免重置场景时出问题
         }
         else
         {
@@ -76,7 +76,7 @@ public class DeveloperToolsManager : MonoBehaviour
         );
 
         // 创建日志记录
-        AddLog("开发者工具已初始化");
+        AddLog("Developer Tools initialized");
     }
 
     private void Start()
@@ -93,7 +93,7 @@ public class DeveloperToolsManager : MonoBehaviour
         // 初始化数据
         RefreshResourceValues();
         
-        AddLog("系统引用已获取");
+        AddLog("System references acquired");
     }
 
     private void Update()
@@ -115,7 +115,7 @@ public class DeveloperToolsManager : MonoBehaviour
         InitializeStyles();
 
         // 绘制主窗口
-        windowRect = GUILayout.Window(0, windowRect, DrawWindow, "开发者工具", windowStyle);
+        windowRect = GUILayout.Window(0, windowRect, DrawWindow, "Developer Tools", windowStyle);
     }
 
     /// <summary>
@@ -159,11 +159,11 @@ public class DeveloperToolsManager : MonoBehaviour
     {
         // 标签页按钮
         GUILayout.BeginHorizontal();
-        if (GUILayout.Toggle(currentTab == 0, "资源调整", GUI.skin.button, GUILayout.Height(30)))
+        if (GUILayout.Toggle(currentTab == 0, "Resources", GUI.skin.button, GUILayout.Height(30)))
             currentTab = 0;
-        if (GUILayout.Toggle(currentTab == 1, "功能控制", GUI.skin.button, GUILayout.Height(30)))
+        if (GUILayout.Toggle(currentTab == 1, "Controls", GUI.skin.button, GUILayout.Height(30)))
             currentTab = 1;
-        if (GUILayout.Toggle(currentTab == 2, "调试信息", GUI.skin.button, GUILayout.Height(30)))
+        if (GUILayout.Toggle(currentTab == 2, "Debug Info", GUI.skin.button, GUILayout.Height(30)))
             currentTab = 2;
         GUILayout.EndHorizontal();
 
@@ -192,7 +192,7 @@ public class DeveloperToolsManager : MonoBehaviour
         // 关闭按钮
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
-        if (GUILayout.Button("关闭", GUILayout.Width(80), GUILayout.Height(25)))
+        if (GUILayout.Button("Close", GUILayout.Width(80), GUILayout.Height(25)))
         {
             ToggleWindow();
         }
@@ -207,14 +207,14 @@ public class DeveloperToolsManager : MonoBehaviour
     /// </summary>
     private void DrawResourceAdjustTab()
     {
-        GUILayout.Label("资源调整", headerStyle);
+        GUILayout.Label("Resource Adjustment", headerStyle);
         GUILayout.Space(10);
 
         if (resourceManager != null)
         {
             // 精力调整
             GUILayout.BeginHorizontal();
-            GUILayout.Label("精力:", sliderLabelStyle);
+            GUILayout.Label("Energy:", sliderLabelStyle);
             
             // 使用更简单的滑动条方式
             float newEnergyValue = energyValue;
@@ -242,13 +242,13 @@ public class DeveloperToolsManager : MonoBehaviour
             {
                 energyValue = newEnergyValue;
                 resourceManager.DebugSetResourceValue(ResourceType.Energy, energyValue);
-                AddLog($"精力设置为: {energyValue}");
+                AddLog($"Energy set to: {energyValue}");
             }
             GUILayout.EndHorizontal();
             
             // 氧气调整
             GUILayout.BeginHorizontal();
-            GUILayout.Label("氧气:", sliderLabelStyle);
+            GUILayout.Label("Oxygen:", sliderLabelStyle);
             
             // 使用更简单的滑动条方式
             float newOxygenValue = oxygenValue;
@@ -276,13 +276,13 @@ public class DeveloperToolsManager : MonoBehaviour
             {
                 oxygenValue = newOxygenValue;
                 resourceManager.DebugSetResourceValue(ResourceType.Oxygen, oxygenValue);
-                AddLog($"氧气设置为: {oxygenValue}");
+                AddLog($"Oxygen set to: {oxygenValue}");
             }
             GUILayout.EndHorizontal();
             
             // 压力调整
             GUILayout.BeginHorizontal();
-            GUILayout.Label("压力:", sliderLabelStyle);
+            GUILayout.Label("Pressure:", sliderLabelStyle);
             
             // 使用更简单的滑动条方式
             float newPressureValue = pressureValue;
@@ -310,61 +310,61 @@ public class DeveloperToolsManager : MonoBehaviour
             {
                 pressureValue = newPressureValue;
                 resourceManager.DebugSetResourceValue(ResourceType.Pressure, pressureValue);
-                AddLog($"压力设置为: {pressureValue}");
+                AddLog($"Pressure set to: {pressureValue}");
             }
             GUILayout.EndHorizontal();
         }
         else
         {
-            GUILayout.Label("资源管理器不可用", sliderLabelStyle);
+            GUILayout.Label("Resource Manager unavailable", sliderLabelStyle);
         }
         
         GUILayout.Space(15);
-        GUILayout.Label("呼吸系统", headerStyle);
+        GUILayout.Label("Breathing System", headerStyle);
         GUILayout.Space(10);
         
         if (breathManager != null)
         {
             // 呼吸状态选择
             GUILayout.BeginHorizontal();
-            GUILayout.Label("呼吸状态:", sliderLabelStyle);
+            GUILayout.Label("Breath State:", sliderLabelStyle);
             
             GUILayout.BeginVertical();
-            bool isRegular = GUILayout.Toggle(breathState == BreathState.Regular, "普通呼吸", toggleStyle);
-            bool isRush = GUILayout.Toggle(breathState == BreathState.Rush, "急促呼吸", toggleStyle);
-            bool isSteady = GUILayout.Toggle(breathState == BreathState.Steady, "稳定呼吸", toggleStyle);
-            bool isCore = GUILayout.Toggle(breathState == BreathState.Core, "核心呼吸", toggleStyle);
+            bool isRegular = GUILayout.Toggle(breathState == BreathState.Regular, "Regular", toggleStyle);
+            bool isRush = GUILayout.Toggle(breathState == BreathState.Rush, "Rush", toggleStyle);
+            bool isSteady = GUILayout.Toggle(breathState == BreathState.Steady, "Steady", toggleStyle);
+            bool isCore = GUILayout.Toggle(breathState == BreathState.Core, "Core", toggleStyle);
             GUILayout.EndVertical();
             
             if (isRegular && breathState != BreathState.Regular)
             {
                 breathState = BreathState.Regular;
                 breathManager.SwitchBreathState(breathState);
-                AddLog($"呼吸状态设置为: {breathState}");
+                AddLog($"Breath state set to: {breathState}");
             }
             else if (isRush && breathState != BreathState.Rush)
             {
                 breathState = BreathState.Rush;
                 breathManager.SwitchBreathState(breathState);
-                AddLog($"呼吸状态设置为: {breathState}");
+                AddLog($"Breath state set to: {breathState}");
             }
             else if (isSteady && breathState != BreathState.Steady)
             {
                 breathState = BreathState.Steady;
                 breathManager.SwitchBreathState(breathState);
-                AddLog($"呼吸状态设置为: {breathState}");
+                AddLog($"Breath state set to: {breathState}");
             }
             else if (isCore && breathState != BreathState.Core)
             {
                 breathState = BreathState.Core;
                 breathManager.SwitchBreathState(breathState);
-                AddLog($"呼吸状态设置为: {breathState}");
+                AddLog($"Breath state set to: {breathState}");
             }
             GUILayout.EndHorizontal();
             
             // 呼吸进度调整
             GUILayout.BeginHorizontal();
-            GUILayout.Label("呼吸进度:", sliderLabelStyle);
+            GUILayout.Label("Breath Progress:", sliderLabelStyle);
             int cycle = breathManager.GetCurrentCycle();
 
             // 使用同样的改进方式
@@ -398,71 +398,76 @@ public class DeveloperToolsManager : MonoBehaviour
                 if (breathManager != null)
                 {
                     breathManager.SetBreathProgressForDebug(breathProgress);
-                    AddLog($"呼吸进度设置为: {breathProgress}/{cycle}");
+                    AddLog($"Breath progress set to: {breathProgress}/{cycle}");
                 }
                 #endif
             }
             GUILayout.EndHorizontal();
             
             // 触发呼吸按钮
-            if (GUILayout.Button("触发呼吸效果", buttonStyle, GUILayout.Height(30)))
+            if (GUILayout.Button("Trigger Breath Effect", buttonStyle, GUILayout.Height(30)))
             {
                 // 让呼吸进度达到周期值来触发呼吸
                 breathManager.AddBreathProgress(cycle - breathManager.GetCurrentProgress());
-                AddLog("手动触发呼吸效果");
+                AddLog("Manually triggered breath effect");
             }
         }
         else
         {
-            GUILayout.Label("呼吸管理器不可用", sliderLabelStyle);
+            GUILayout.Label("Breath Manager unavailable", sliderLabelStyle);
         }
         
         GUILayout.Space(15);
-        GUILayout.Label("角色控制", headerStyle);
+        GUILayout.Label("Character Control", headerStyle);
         GUILayout.Space(10);
         
         if (playerController != null)
         {
             // 速度档位调整
             GUILayout.BeginHorizontal();
-            GUILayout.Label("速度档位:", sliderLabelStyle);
+            GUILayout.Label("Speed Level:", sliderLabelStyle);
             
-            bool isSpeed1 = GUILayout.Toggle(speedLevel == 1, "1档", buttonStyle);
-            bool isSpeed2 = GUILayout.Toggle(speedLevel == 2, "2档", buttonStyle);
-            bool isSpeed3 = GUILayout.Toggle(speedLevel == 3, "3档", buttonStyle);
+            bool isSpeed1 = GUILayout.Toggle(speedLevel == 1, "Level 1", buttonStyle);
+            bool isSpeed2 = GUILayout.Toggle(speedLevel == 2, "Level 2", buttonStyle);
+            bool isSpeed3 = GUILayout.Toggle(speedLevel == 3, "Level 3", buttonStyle);
             
             if (isSpeed1 && speedLevel != 1)
             {
                 speedLevel = 1;
                 playerController.SetSpeed(speedLevel);
-                AddLog($"速度设置为: {speedLevel}档");
+                AddLog($"Speed directly set to: Level {speedLevel} (no energy cost)");
             }
             else if (isSpeed2 && speedLevel != 2)
             {
                 speedLevel = 2;
                 playerController.SetSpeed(speedLevel);
-                AddLog($"速度设置为: {speedLevel}档");
+                AddLog($"Speed directly set to: Level {speedLevel} (no energy cost)");
             }
             else if (isSpeed3 && speedLevel != 3)
             {
                 speedLevel = 3;
                 playerController.SetSpeed(speedLevel);
-                AddLog($"速度设置为: {speedLevel}档");
+                AddLog($"Speed directly set to: Level {speedLevel} (no energy cost)");
             }
             GUILayout.EndHorizontal();
+
+            // 添加开发者功能说明
+            GUI.contentColor = Color.yellow;
+            GUILayout.Label("Note: Developer speed setting bypasses game rules (no energy cost, no turn limit)", GUI.skin.label);
+            GUI.contentColor = Color.white;
         }
         else
         {
-            GUILayout.Label("玩家控制器不可用", sliderLabelStyle);
+            GUILayout.Label("Player Controller unavailable", sliderLabelStyle);
         }
         
         GUILayout.Space(10);
         
         // 刷新按钮
-        if (GUILayout.Button("刷新数据", buttonStyle, GUILayout.Height(30)))
+        if (GUILayout.Button("Refresh Data", buttonStyle, GUILayout.Height(30)))
         {
             RefreshResourceValues();
-            AddLog("刷新所有数据");
+            AddLog("Refreshed all data");
         }
     }
 
@@ -471,12 +476,12 @@ public class DeveloperToolsManager : MonoBehaviour
     /// </summary>
     private void DrawControlTab()
     {
-        GUILayout.Label("功能控制", headerStyle);
+        GUILayout.Label("Function Controls", headerStyle);
         GUILayout.Space(10);
         
         // 转向动作开关
         GUILayout.BeginHorizontal();
-        bool newEnableTurningAction = GUILayout.Toggle(enableTurningAction, "启用转向动作", toggleStyle);
+        bool newEnableTurningAction = GUILayout.Toggle(enableTurningAction, "Enable Turn Action", toggleStyle);
         if (newEnableTurningAction != enableTurningAction)
         {
             enableTurningAction = newEnableTurningAction;
@@ -485,7 +490,7 @@ public class DeveloperToolsManager : MonoBehaviour
             {
                 // 直接设置按钮的活动状态
                 turningActionButton.gameObject.SetActive(enableTurningAction);
-                AddLog($"转向按钮已{(enableTurningAction ? "启用" : "禁用")}");
+                AddLog($"Turn button {(enableTurningAction ? "enabled" : "disabled")}");
             }
             else if (playerController != null)
             {
@@ -493,7 +498,7 @@ public class DeveloperToolsManager : MonoBehaviour
                 #if UNITY_EDITOR || DEVELOPMENT_BUILD
                 playerController.EnableTurningAction(enableTurningAction);
                 #endif
-                AddLog($"转向动作已{(enableTurningAction ? "启用" : "禁用")}");
+                AddLog($"Turn action {(enableTurningAction ? "enabled" : "disabled")}");
                 
                 // 尝试再次查找按钮
                 FindTurningActionButton();
@@ -502,57 +507,57 @@ public class DeveloperToolsManager : MonoBehaviour
         GUILayout.EndHorizontal();
         
         GUILayout.Space(15);
-        GUILayout.Label("游戏状态控制", headerStyle);
+        GUILayout.Label("Game State Control", headerStyle);
         GUILayout.Space(10);
         
         if (gameManager != null)
         {
             // 游戏状态切换按钮
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("规划阶段", buttonStyle, GUILayout.Height(30)))
+            if (GUILayout.Button("Planning Phase", buttonStyle, GUILayout.Height(30)))
             {
                 gameManager.SetGameState(GameState.Planning);
-                AddLog("切换到规划阶段");
+                AddLog("Switched to Planning phase");
             }
-            if (GUILayout.Button("目标选择", buttonStyle, GUILayout.Height(30)))
+            if (GUILayout.Button("Targeting Phase", buttonStyle, GUILayout.Height(30)))
             {
                 gameManager.SetGameState(GameState.Targeting);
-                AddLog("切换到目标选择阶段");
+                AddLog("Switched to Targeting phase");
             }
-            if (GUILayout.Button("执行阶段", buttonStyle, GUILayout.Height(30)))
+            if (GUILayout.Button("Execution Phase", buttonStyle, GUILayout.Height(30)))
             {
                 gameManager.SetGameState(GameState.Executing);
-                AddLog("切换到执行阶段");
+                AddLog("Switched to Execution phase");
             }
             GUILayout.EndHorizontal();
             
             // 时间控制按钮
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("暂停", buttonStyle, GUILayout.Height(30)))
+            if (GUILayout.Button("Pause", buttonStyle, GUILayout.Height(30)))
             {
                 Time.timeScale = 0f;
-                AddLog("游戏已暂停");
+                AddLog("Game paused");
             }
-            if (GUILayout.Button("1/4速度", buttonStyle, GUILayout.Height(30)))
+            if (GUILayout.Button("1/4 Speed", buttonStyle, GUILayout.Height(30)))
             {
                 Time.timeScale = 0.25f;
-                AddLog("游戏速度设为1/4");
+                AddLog("Game speed set to 1/4");
             }
-            if (GUILayout.Button("1/2速度", buttonStyle, GUILayout.Height(30)))
+            if (GUILayout.Button("1/2 Speed", buttonStyle, GUILayout.Height(30)))
             {
                 Time.timeScale = 0.5f;
-                AddLog("游戏速度设为1/2");
+                AddLog("Game speed set to 1/2");
             }
-            if (GUILayout.Button("正常速度", buttonStyle, GUILayout.Height(30)))
+            if (GUILayout.Button("Normal Speed", buttonStyle, GUILayout.Height(30)))
             {
                 Time.timeScale = 1f;
-                AddLog("游戏速度恢复正常");
+                AddLog("Game speed restored to normal");
             }
             GUILayout.EndHorizontal();
         }
         else
         {
-            GUILayout.Label("游戏管理器不可用", sliderLabelStyle);
+            GUILayout.Label("Game Manager unavailable", sliderLabelStyle);
         }
     }
 
@@ -561,42 +566,42 @@ public class DeveloperToolsManager : MonoBehaviour
     /// </summary>
     private void DrawDebugInfoTab()
     {
-        GUILayout.Label("调试信息", headerStyle);
+        GUILayout.Label("Debug Information", headerStyle);
         GUILayout.Space(10);
         
         // 游戏状态信息
-        GUILayout.Label("基本信息", headerStyle);
+        GUILayout.Label("Basic Information", headerStyle);
         GUILayout.Space(5);
         
         if (gameManager != null)
         {
-            GUILayout.Label($"当前游戏状态: {gameManager.CurrentState}");
-            GUILayout.Label($"时间缩放: {Time.timeScale:F2}");
-            GUILayout.Label($"帧率: {(int)(1.0f / Time.deltaTime)} FPS");
+            GUILayout.Label($"Current Game State: {gameManager.CurrentState}");
+            GUILayout.Label($"Time Scale: {Time.timeScale:F2}");
+            GUILayout.Label($"FPS: {(int)(1.0f / Time.deltaTime)}");
         }
         
         if (playerController != null)
         {
-            GUILayout.Label($"角色位置: {playerController.transform.position}");
-            GUILayout.Label($"当前速度: {playerController.GetCurrentSpeed():F1}");
+            GUILayout.Label($"Character Position: {playerController.transform.position}");
+            GUILayout.Label($"Current Speed: {playerController.GetCurrentSpeed():F1}");
         }
         
         if (resourceManager != null)
         {
-            GUILayout.Label($"精力: {resourceManager.GetResourceValue(ResourceType.Energy)} / {resourceManager.GetResourceMaxValue(ResourceType.Energy)}");
-            GUILayout.Label($"氧气: {resourceManager.GetResourceValue(ResourceType.Oxygen)} / {resourceManager.GetResourceMaxValue(ResourceType.Oxygen)}");
-            GUILayout.Label($"压力: {resourceManager.GetResourceValue(ResourceType.Pressure)} / {resourceManager.GetResourceMaxValue(ResourceType.Pressure)}");
+            GUILayout.Label($"Energy: {resourceManager.GetResourceValue(ResourceType.Energy)} / {resourceManager.GetResourceMaxValue(ResourceType.Energy)}");
+            GUILayout.Label($"Oxygen: {resourceManager.GetResourceValue(ResourceType.Oxygen)} / {resourceManager.GetResourceMaxValue(ResourceType.Oxygen)}");
+            GUILayout.Label($"Pressure: {resourceManager.GetResourceValue(ResourceType.Pressure)} / {resourceManager.GetResourceMaxValue(ResourceType.Pressure)}");
         }
         
         if (breathManager != null)
         {
-            GUILayout.Label($"呼吸状态: {breathManager.GetCurrentState()}");
-            GUILayout.Label($"呼吸进度: {breathManager.GetCurrentProgress()} / {breathManager.GetCurrentCycle()}");
+            GUILayout.Label($"Breath State: {breathManager.GetCurrentState()}");
+            GUILayout.Label($"Breath Progress: {breathManager.GetCurrentProgress()} / {breathManager.GetCurrentCycle()}");
         }
         
         // 操作日志
         GUILayout.Space(15);
-        GUILayout.Label("操作日志", headerStyle);
+        GUILayout.Label("Action Log", headerStyle);
         GUILayout.Space(5);
         
         foreach (string log in actionLogs)
@@ -685,7 +690,7 @@ public class DeveloperToolsManager : MonoBehaviour
     /// </summary>
     private void OnDestroy()
     {
-        AddLog("开发者工具已销毁");
+        AddLog("Developer Tools destroyed");
     }
 
     /// <summary>
@@ -701,7 +706,7 @@ public class DeveloperToolsManager : MonoBehaviour
                 button.gameObject.name.ToLower().Contains("转向"))
             {
                 turningActionButton = button;
-                AddLog("找到转向按钮: " + button.gameObject.name);
+                AddLog("Found turn button: " + button.gameObject.name);
                 
                 // 获取当前转向按钮启用状态
                 enableTurningAction = turningActionButton.gameObject.activeSelf;
@@ -711,7 +716,7 @@ public class DeveloperToolsManager : MonoBehaviour
         
         if (turningActionButton == null)
         {
-            AddLog("未找到转向按钮!");
+            AddLog("Turn button not found!");
         }
     }
 } 
