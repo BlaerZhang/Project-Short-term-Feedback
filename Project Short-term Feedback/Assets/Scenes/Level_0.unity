@@ -1768,9 +1768,9 @@ MonoBehaviour:
   planningUI: {fileID: 0}
   targetingUI: {fileID: 0}
   executingUI: {fileID: 0}
-  timeScaleChangeDuration: 0.3
+  timeScaleChangeDuration: 0.1
   targetTimeScale: 0.1
-  startSlowMotionAtProgress: 0.8
+  startSlowMotionAtProgress: 0.883
 --- !u!4 &108511948
 Transform:
   m_ObjectHideFlags: 0
@@ -6861,6 +6861,59 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 431718736}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &438537703
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 438537705}
+  - component: {fileID: 438537704}
+  m_Layer: 0
+  m_Name: Audio Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &438537704
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438537703}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7bdc0a3c9b8afd45a8ce697dc090b12, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  footstepsSound: {fileID: 8300000, guid: 4b095e496c27b9a419d98615bde3fdb7, type: 3}
+  jumpSound: {fileID: 8300000, guid: 146cc154d70fd5e4fa5b37042c7f2224, type: 3}
+  backgroundMusic: {fileID: 8300000, guid: b717280771a32984f94eb224f14bb947, type: 3}
+  footstepsVolume: 1
+  jumpVolume: 1
+  bgmVolume: 0.1
+  basePitch: 1
+  minSfxPitch: 0.3
+  minBgmPitch: 0.5
+--- !u!4 &438537705
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438537703}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &438610171
 GameObject:
   m_ObjectHideFlags: 0
@@ -32337,3 +32390,4 @@ SceneRoots:
   - {fileID: 438908475}
   - {fileID: 108511948}
   - {fileID: 297723684}
+  - {fileID: 438537705}

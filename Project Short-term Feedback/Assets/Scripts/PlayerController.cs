@@ -88,6 +88,7 @@ public class PlayerController : MonoBehaviour
     private bool landingPointCollision = false; // 落点是否发生碰撞
     private bool pathCollision = false;  // 路径是否发生碰撞
     private GameState gameState;         // 游戏状态
+    private AudioManager audioManager;    // 添加对AudioManager的引用
 
     private void Awake()
     {
@@ -159,6 +160,17 @@ public class PlayerController : MonoBehaviour
                     1f
                 );
             }
+        }
+
+        // 获取AudioManager引用
+        audioManager = FindObjectOfType<AudioManager>();
+        if (audioManager == null)
+        {
+            Debug.LogWarning("AudioManager未找到，将无法播放音效。请确保场景中有AudioManager对象。");
+        }
+        else
+        {
+            Debug.Log("成功找到AudioManager，音效系统已准备就绪。");
         }
     }
 
@@ -722,6 +734,17 @@ public class PlayerController : MonoBehaviour
             gameManager.StartExecutionPhase();
         }
 
+        // 如果存在音效管理器，播放脚步声
+        if (audioManager != null)
+        {
+            audioManager.PlayFootsteps();
+            Debug.Log("PlayerController: 尝试播放脚步声");
+        }
+        else
+        {
+            Debug.LogWarning("PlayerController: 无法播放脚步声，audioManager为null");
+        }
+
         // 启动移动协程
         StartCoroutine(RunningCoroutine(movementPath));
     }
@@ -800,6 +823,17 @@ public class PlayerController : MonoBehaviour
         {
             gameManager.EndExecutionPhase();
         }
+
+        // 停止脚步声
+        if (audioManager != null)
+        {
+            audioManager.StopFootsteps();
+            Debug.Log("PlayerController: 尝试停止脚步声");
+        }
+        else
+        {
+            Debug.LogWarning("PlayerController: 无法停止脚步声，audioManager为null");
+        }
     }
 
     // 开始跳跃
@@ -831,6 +865,17 @@ public class PlayerController : MonoBehaviour
         if (gameManager != null)
         {
             gameManager.StartExecutionPhase();
+        }
+
+        // 如果存在音效管理器，播放跳跃音效
+        if (audioManager != null)
+        {
+            audioManager.PlayJump();
+            Debug.Log("PlayerController: 尝试播放跳跃音效");
+        }
+        else
+        {
+            Debug.LogWarning("PlayerController: 无法播放跳跃音效，audioManager为null");
         }
 
         // 启动跳跃协程
