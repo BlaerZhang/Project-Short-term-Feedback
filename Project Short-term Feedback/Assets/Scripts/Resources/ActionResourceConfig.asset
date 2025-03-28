@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8968aba035d1a14e8bc597c805675e0, type: 3}
+  m_Name: ActionResourceConfig
+  m_EditorClassIdentifier: 
+  actions:
+  - actionType: 1
+    speedConfigs:
+    - speedLevel: 1
+      resourceEffects:
+      - resourceType: 1
+        amount: -2
+      - resourceType: 2
+        amount: 2
+    - speedLevel: 2
+      resourceEffects:
+      - resourceType: 1
+        amount: -3
+      - resourceType: 2
+        amount: 1
+    - speedLevel: 3
+      resourceEffects:
+      - resourceType: 1
+        amount: -4
+      - resourceType: 2
+        amount: 1
+  - actionType: 2
+    speedConfigs:
+    - speedLevel: 1
+      resourceEffects:
+      - resourceType: 1
+        amount: -4
+      - resourceType: 2
+        amount: 2
+    - speedLevel: 2
+      resourceEffects:
+      - resourceType: 1
+        amount: -3
+      - resourceType: 2
+        amount: 2
+    - speedLevel: 3
+      resourceEffects:
+      - resourceType: 1
+        amount: -2
+      - resourceType: 2
+        amount: 1

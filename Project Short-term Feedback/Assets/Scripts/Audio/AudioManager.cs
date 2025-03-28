@@ -236,10 +236,10 @@ public class AudioManager : MonoBehaviour
         if (gameManager != null)
         {
             // 获取当前状态并设置音乐
-            OnGameStateChanged(gameManager.CurrentState);
+            OnGameStateChanged(gameManager.CurrentState, GameState.Paused);
             
             // 订阅GameManager的状态变化事件
-            gameManager.OnGameStateChangedEvent += OnGameStateChanged;
+            gameManager.OnGameStateChanged += OnGameStateChanged;
             Debug.Log("已订阅GameManager状态变化事件");
         }
         else
@@ -254,7 +254,7 @@ public class AudioManager : MonoBehaviour
         GameManager gameManager = FindObjectOfType<GameManager>();
         if (gameManager != null)
         {
-            gameManager.OnGameStateChangedEvent -= OnGameStateChanged;
+            gameManager.OnGameStateChanged -= OnGameStateChanged;
             Debug.Log("已取消订阅GameManager状态变化事件");
         }
     }
@@ -262,7 +262,7 @@ public class AudioManager : MonoBehaviour
     /// <summary>
     /// 游戏状态变化处理
     /// </summary>
-    public void OnGameStateChanged(GameState newState)
+    public void OnGameStateChanged(GameState newState, GameState previousState)
     {
         Debug.Log($"AudioManager响应游戏状态变化: {newState}");
         

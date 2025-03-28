@@ -2,10 +2,14 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 using DG.Tweening;
 using DG.Tweening.Core;
 using DG.Tweening.Plugins.Options;
 using DG.Tweening.Plugins;
+
+// 添加资源系统的引用
+using System;
 
 // 移动动作类型枚举
 public enum MoveActionType
@@ -19,10 +23,28 @@ public enum MoveActionType
 public class PlayerController : MonoBehaviour
 {
     [Header("角色属性")]
-    [SerializeField] private float maxSpeed = 5f;      // 角色最大移动速度
-    [SerializeField] private float minSpeed = 1f;      // 角色最小移动速度
-    [SerializeField] private float currentSpeed = 3f;  // 当前速度
-
+    [Tooltip("最大速度")]
+    [Range(1, 3)] // 修改速度范围为1-3
+    [SerializeField] private float maxSpeed = 3f;      // 修改为最大3档
+    [Tooltip("最小速度")]
+    [Range(1, 3)] // 修改速度范围为1-3
+    [SerializeField] private float minSpeed = 1f;      // 保持最小1档
+    [Tooltip("当前速度")]
+    [Range(1, 3)] // 修改速度范围为1-3
+    [SerializeField] private float currentSpeed = 2f;  // 默认中档速度
+    [Tooltip("基础动作效果速度系数（用于保持原1-5档的体验）")]
+    [SerializeField] private float speedScaleFactor = 1.67f; // 5/3 = 1.67，将1-3映射到1-5
+    [Tooltip("是否已经在当前回合切换过速度")]
+    private bool hasChangedSpeedThisRound = false;      // 速度切换标志
+    
+    [Header("基础运动参数")]
+    [SerializeField] private float baseRunDistance = 3f; // 基础跑步距离
+    [SerializeField] private float baseRunSpeed = 5f;    // 基础跑步速度
+    [SerializeField] private float baseJumpHeight = 2f;  // 基础跳跃高度
+    [SerializeField] private float baseJumpDistance = 4f; // 基础跳跃距离
+    [SerializeField] private float minJumpHeightFactor = 0.5f; // 最小跳跃高度系数
+    [SerializeField] private float maxJumpHeightFactor = 1.5f; // 最大跳跃高度系数
+    
     [Header("角色碰撞设置")]
     [SerializeField] private float playerCollisionRadius = 0.5f; // 角色碰撞半径
     [SerializeField] private float collisionToleranceDistance = 0.1f; // 碰撞容差距离
@@ -74,6 +96,10 @@ public class PlayerController : MonoBehaviour
     [Tooltip("转向方向指示器材质")]
     [SerializeField] private Material turnIndicatorMaterial;
 
+    // 新增UI交互相关变量
+    [Header("UI交互设置")]
+    [SerializeField] private EventSystem eventSystem; // 事件系统引用，用于检测UI点击
+
     // 状态变量
     private MoveActionType currentAction = MoveActionType.None; // 当前选择的动作
     private Vector3 moveTargetPosition;  // 移动目标位置
@@ -88,7 +114,72 @@ public class PlayerController : MonoBehaviour
     private bool landingPointCollision = false; // 落点是否发生碰撞
     private bool pathCollision = false;  // 路径是否发生碰撞
     private GameState gameState;         // 游戏状态
-    private AudioManager audioManager;    // 添加对AudioManager的引用
+        private AudioManager audioManager;    // 添加对AudioManager的引用
+
+    [Header("资源设置")]
+    [SerializeField] private ActionResourceConfig resourceConfig; // 资源消耗配置
+
+    // 在类声明下面添加呼吸管理器引用
+    private BreathManager breathManager;
+
+    // 添加转向动作控制变量
+    private bool turnActionEnabled = false; // 默认禁用转向动作
+
+    #if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 用于开发调试的功能
+
+        /// <summary>
+        /// 设置角色速度（调试专用）
+        /// </summary>
+        public void SetSpeed(int speedLevel)
+        {
+            // 确保速度在有效范围内
+            speedLevel = Mathf.Clamp(speedLevel, 1, 3);
+            
+            // 直接设置速度，绕过所有游戏规则限制（不消耗精力，不检查回合限制）
+            currentSpeed = speedLevel;
+            
+            // 更新速度相关的视觉效果和状态
+            UpdateSpeedVisuals();
+            
+            Debug.Log($"PlayerController: Debug function - Speed directly set to {speedLevel}");
+        }
+
+        /// <summary>
+        /// 更新与速度相关的视觉效果
+        /// </summary>
+        private void UpdateSpeedVisuals()
+        {
+            // 更新速度相关的UI或视觉效果
+            // 例如更新速度段显示器等
+            
+            // 查找并通知所有SpeedSegmentBar
+            SpeedSegmentBar[] speedBars = FindObjectsOfType<SpeedSegmentBar>();
+            foreach (var bar in speedBars)
+            {
+                bar.ForceUpdateUI(currentSpeed);
+            }
+        }
+
+        /// <summary>
+        /// 启用或禁用转向动作
+        /// </summary>
+        public void EnableTurningAction(bool enable)
+        {
+            // 此处实现转向动作的启用/禁用逻辑
+            turnActionEnabled = enable;
+            
+            Debug.Log($"PlayerController: Debug function - Turn action {(enable ? "enabled" : "disabled")}");
+        }
+
+        /// <summary>
+        /// 获取转向动作是否启用
+        /// </summary>
+        public bool IsTurningActionEnabled()
+        {
+            return turnActionEnabled;
+        }
+    #endif
 
     private void Awake()
     {
@@ -172,6 +263,16 @@ public class PlayerController : MonoBehaviour
         {
             Debug.Log("成功找到AudioManager，音效系统已准备就绪。");
         }
+
+        // 获取EventSystem引用
+        if (eventSystem == null)
+        {
+            eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                Debug.LogWarning("PlayerController: 未找到EventSystem！UI点击检测可能无法正常工作。");
+            }
+        }
     }
 
     private void Start()
@@ -207,6 +308,13 @@ public class PlayerController : MonoBehaviour
         
         // 输出碰撞设置信息
         Debug.LogFormat("PlayerController: 碰撞半径={0}, 容差距离={1}", playerCollisionRadius, collisionToleranceDistance);
+
+        // 获取呼吸管理器引用
+        breathManager = BreathManager.Instance;
+        if (breathManager == null)
+        {
+            Debug.LogWarning("PlayerController: 未找到BreathManager！呼吸系统功能将无法使用。");
+        }
     }
 
     private void Update()
@@ -263,11 +371,11 @@ public class PlayerController : MonoBehaviour
         }
         else if (Keyboard.current.digit2Key.wasPressedThisFrame)
         {
-            ChangeSpeed(3);
+            ChangeSpeed(2);
         }
         else if (Keyboard.current.digit3Key.wasPressedThisFrame)
         {
-            ChangeSpeed(5);
+            ChangeSpeed(3);
         }
     }
 
@@ -276,50 +384,35 @@ public class PlayerController : MonoBehaviour
         // Q键选择跑步
         if (Keyboard.current.qKey.wasPressedThisFrame)
         {
-            SelectAction(MoveActionType.Run);
+            TriggerActionButtonByKey(KeyCode.Q);
         }
         // W键选择跳跃
         else if (Keyboard.current.wKey.wasPressedThisFrame)
         {
-            SelectAction(MoveActionType.Jump);
+            TriggerActionButtonByKey(KeyCode.W);
         }
         // E键选择转向
         else if (Keyboard.current.eKey.wasPressedThisFrame)
         {
-            SelectAction(MoveActionType.Turn);
+            TriggerActionButtonByKey(KeyCode.E);
         }
     }
 
-    // 处理目标选择阶段的输入
+    // 处理目标选择阶段的键盘输入，现在改为触发按钮的方法
     private void HandleTargetingInput()
     {
-        // 在目标选择阶段，允许直接按Q或W切换动作类型
-        if (Keyboard.current.qKey.wasPressedThisFrame && currentAction != MoveActionType.Run)
+        // 在目标选择阶段，允许直接按快捷键切换动作类型
+        if (Keyboard.current.qKey.wasPressedThisFrame)
         {
-            // 先取消当前目标选择，再选择新的动作
-            if (gameManager != null)
-            {
-                gameManager.CancelTargetingPhase();
-                SelectAction(MoveActionType.Run);
-            }
+            TriggerActionButtonByKey(KeyCode.Q);
         }
-        else if (Keyboard.current.wKey.wasPressedThisFrame && currentAction != MoveActionType.Jump)
+        else if (Keyboard.current.wKey.wasPressedThisFrame)
         {
-            // 先取消当前目标选择，再选择新的动作
-            if (gameManager != null)
-            {
-                gameManager.CancelTargetingPhase();
-                SelectAction(MoveActionType.Jump);
-            }
+            TriggerActionButtonByKey(KeyCode.W);
         }
-        else if (Keyboard.current.eKey.wasPressedThisFrame && currentAction != MoveActionType.Turn)
+        else if (Keyboard.current.eKey.wasPressedThisFrame)
         {
-            // 先取消当前目标选择，再选择新的动作
-            if (gameManager != null)
-            {
-                gameManager.CancelTargetingPhase();
-                SelectAction(MoveActionType.Turn);
-            }
+            TriggerActionButtonByKey(KeyCode.E);
         }
         else if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
@@ -384,6 +477,12 @@ public class PlayerController : MonoBehaviour
 
     private void HandleRunTargeting()
     {
+        // 如果点击在UI上，跳过处理
+        if (Mouse.current.leftButton.wasPressedThisFrame && IsPointerOverUI())
+        {
+            return;
+        }
+
         // 获取鼠标位置
         Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
         RaycastHit hit;
@@ -422,6 +521,12 @@ public class PlayerController : MonoBehaviour
 
     private void HandleJumpTargeting()
     {
+        // 如果点击在UI上，跳过处理
+        if (Mouse.current.leftButton.wasPressedThisFrame && IsPointerOverUI())
+        {
+            return;
+        }
+
         // 获取鼠标位置
         Ray ray = mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
         RaycastHit hit;
@@ -691,6 +796,9 @@ public class PlayerController : MonoBehaviour
     // 开始跑步
     private void StartRunning(Vector3 targetPoint)
     {
+        // 添加资源消耗
+        ConsumeActionResources(MoveActionType.Run, currentSpeed);
+        
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
@@ -743,6 +851,13 @@ public class PlayerController : MonoBehaviour
         else
         {
             Debug.LogWarning("PlayerController: 无法播放脚步声，audioManager为null");
+        }
+        
+        // 累积呼吸进度（1/1/2取决于速度档位）- 移动到游戏状态变更后
+        if (breathManager != null)
+        {
+            int breathProgress = (currentSpeed >= 3) ? 2 : 1;
+            breathManager.AddBreathProgress(breathProgress);
         }
 
         // 启动移动协程
@@ -839,6 +954,9 @@ public class PlayerController : MonoBehaviour
     // 开始跳跃
     private void StartJumping(Vector3 targetPoint)
     {
+        // 添加资源消耗
+        ConsumeActionResources(MoveActionType.Jump, currentSpeed);
+        
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
@@ -876,6 +994,12 @@ public class PlayerController : MonoBehaviour
         else
         {
             Debug.LogWarning("PlayerController: 无法播放跳跃音效，audioManager为null");
+        }
+        
+        // 累积呼吸进度（固定为1点）- 移动到游戏状态变更后
+        if (breathManager != null)
+        {
+            breathManager.AddBreathProgress(1);
         }
 
         // 启动跳跃协程
@@ -931,6 +1055,19 @@ public class PlayerController : MonoBehaviour
             
         // 更新当前朝向
         currentDirection = jumpDirection;
+        
+        // 跳跃结束后自动将速度设置为1档（跳跃特性）
+        float oldSpeed = currentSpeed;
+        currentSpeed = 1f;
+        
+        // 通知UI更新
+        SpeedSegmentBar[] speedBars = FindObjectsOfType<SpeedSegmentBar>();
+        foreach (SpeedSegmentBar bar in speedBars)
+        {
+            bar.ForceUpdateUI(currentSpeed);
+        }
+        
+        Debug.Log($"跳跃完成，速度从 {oldSpeed} 自动重置为 1");
             
         // 重置状态 - 移除设置IsJumping为false的代码，因为使用了Trigger
         isMoving = false;
@@ -1010,12 +1147,72 @@ public class PlayerController : MonoBehaviour
     // 改变角色速度
     public void ChangeSpeed(float newSpeed)
     {
-        currentSpeed = Mathf.Clamp(newSpeed, minSpeed, maxSpeed);
-        
-        // 如果处于目标选择阶段，更新圆弧指示器
-        if (gameManager != null && gameManager.CurrentState == GameState.Targeting)
+        // 如果不在Planning阶段，不允许切换速度
+        if (gameManager != null && gameManager.CurrentState != GameState.Planning)
         {
-            UpdateArcIndicator();
+            Debug.Log("只能在计划阶段切换速度");
+            return;
+        }
+        
+        // 如果已经切换过速度，不允许再次切换
+        if (hasChangedSpeedThisRound)
+        {
+            Debug.Log("当前回合已经切换过速度");
+            return;
+        }
+        
+        // 如果目标速度与当前速度相同，不做任何操作
+        if (Mathf.Approximately(newSpeed, currentSpeed))
+        {
+            return;
+        }
+        
+        // 计算速度差和精力消耗
+        int speedDifference = Mathf.Abs(Mathf.RoundToInt(newSpeed - currentSpeed));
+        float energyCost = (speedDifference == 1) ? 1f : 3f;
+        
+        // 检查是否有足够的精力
+        if (ResourceManager.Instance != null)
+        {
+            float currentEnergy = ResourceManager.Instance.GetResourceValue(ResourceType.Energy);
+            if (currentEnergy < energyCost)
+            {
+                Debug.Log($"精力不足，无法切换速度。需要: {energyCost}, 当前: {currentEnergy}");
+                return;
+            }
+            
+            // 扣除精力
+            bool success = ResourceManager.Instance.ChangeResource(ResourceType.Energy, -energyCost);
+            if (!success)
+            {
+                Debug.Log("切换速度失败");
+                return;
+            }
+            
+            // 设置新速度
+            currentSpeed = Mathf.Clamp(newSpeed, minSpeed, maxSpeed);
+            
+            // 标记已切换速度
+            hasChangedSpeedThisRound = true;
+            
+            Debug.Log($"速度已切换到 {currentSpeed} 档，消耗精力 {energyCost}");
+            
+            // 如果处于目标选择阶段，更新圆弧指示器
+            if (gameManager != null && gameManager.CurrentState == GameState.Targeting)
+            {
+                UpdateArcIndicator();
+            }
+            
+            // 通知所有SpeedSegmentBar更新UI
+            SpeedSegmentBar[] speedBars = FindObjectsOfType<SpeedSegmentBar>();
+            foreach (SpeedSegmentBar bar in speedBars)
+            {
+                bar.ForceUpdateUI(currentSpeed);
+            }
+        }
+        else
+        {
+            Debug.LogError("ResourceManager未找到，无法切换速度");
         }
     }
 
@@ -1034,7 +1231,7 @@ public class PlayerController : MonoBehaviour
     }
 
     // 接收游戏状态变化通知
-    public void OnGameStateChanged(GameState newState)
+    public void OnGameStateChanged(GameState newState, GameState previousState)
     {
         gameState = newState;
 
@@ -1055,6 +1252,8 @@ public class PlayerController : MonoBehaviour
                 HideLandingMarker();
                 // 重置当前动作
                 currentAction = MoveActionType.None;
+                // 重置速度切换标志
+                hasChangedSpeedThisRound = false;
                 break;
 
             case GameState.Targeting:
@@ -1363,20 +1562,15 @@ public class PlayerController : MonoBehaviour
                 result += LayerMask.LayerToName(i) + ", ";
             }
         }
-        return result.TrimEnd(' ', ',');
+        return result.TrimEnd(',', ' ');
     }
 
     // 处理转向目标选择
     private void HandleTurnTargeting()
     {
-        // ESC键取消当前动作
-        if (Keyboard.current.escapeKey.wasPressedThisFrame)
+        // 如果点击在UI上，跳过处理
+        if (Mouse.current.leftButton.wasPressedThisFrame && IsPointerOverUI())
         {
-            CancelCurrentAction();
-            if (gameManager != null)
-            {
-                gameManager.CancelTargetingPhase();
-            }
             return;
         }
         
@@ -1447,6 +1641,9 @@ public class PlayerController : MonoBehaviour
     // 开始执行转向
     private void StartTurning(Vector3 targetDirection)
     {
+        // 添加资源消耗
+        ConsumeActionResources(MoveActionType.Turn, currentSpeed);
+        
         // 隐藏路径预览
         HidePathPreview();
         
@@ -1556,12 +1753,15 @@ public class PlayerController : MonoBehaviour
         }
     }
     
-    // 取消当前动作
-    private void CancelCurrentAction()
+    // 修改取消当前动作方法为公共方法，以便UI按钮调用
+    public void CancelCurrentAction()
     {
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
+        
+        // 重置当前动作
+        currentAction = MoveActionType.None;
     }
 
     // 计算跳跃路径
@@ -1586,5 +1786,152 @@ public class PlayerController : MonoBehaviour
         }
         
         return jumpPath;
+    }
+
+    // 检查是否点击在UI上
+    private bool IsPointerOverUI()
+    {
+        // 检查是否有EventSystem并且指针在UI上
+        return eventSystem != null && eventSystem.IsPointerOverGameObject();
+    }
+
+    // 新增方法：从UI按钮选择动作
+    public void SelectActionFromUI(MoveActionType actionType)
+    {
+        // 如果正在移动，忽略操作
+        if (isMoving || !canMove)
+        {
+            return;
+        }
+
+        // 如果当前在目标选择阶段并且选择了不同的动作
+        if (gameManager != null && gameManager.CurrentState == GameState.Targeting && currentAction != actionType)
+        {
+            // 先取消当前目标选择，再选择新的动作
+            gameManager.CancelTargetingPhase();
+        }
+
+        // 选择指定的动作
+        SelectAction(actionType);
+    }
+
+    // 获取当前选择的动作
+    public MoveActionType GetCurrentAction()
+    {
+        return currentAction;
+    }
+
+    // 获取当前速度
+    public float GetCurrentSpeed()
+    {
+        return currentSpeed;
+    }
+    
+    // 获取最小速度
+    public float GetMinSpeed()
+    {
+        return minSpeed;
+    }
+    
+    // 获取最大速度
+    public float GetMaxSpeed()
+    {
+        return maxSpeed;
+    }
+
+    // 添加查找并触发对应按钮的快捷键方法
+    private void TriggerActionButtonByKey(KeyCode key)
+    {
+        // 查找所有ActionButtonController
+        ActionButtonController[] buttons = FindObjectsOfType<ActionButtonController>();
+        foreach (ActionButtonController button in buttons)
+        {
+            // 使用反射获取按钮的keyboardShortcut字段值
+            System.Reflection.FieldInfo field = typeof(ActionButtonController).GetField("keyboardShortcut", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                
+            if (field != null)
+            {
+                KeyCode buttonKey = (KeyCode)field.GetValue(button);
+                if (buttonKey == key)
+                {
+                    // 找到匹配的按钮，触发其快捷键逻辑
+                    button.TriggerKeyboardShortcut();
+                    return;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 执行动作的资源消耗
+    /// </summary>
+    private void ConsumeActionResources(MoveActionType actionType, float speed)
+    {
+        if (resourceConfig == null || ResourceManager.Instance == null)
+            return;
+            
+        // 将速度值取整为速度档位（1-3）
+        int speedLevel = Mathf.Clamp(Mathf.RoundToInt(speed), 1, 3);
+        
+        // 获取该动作在当前速度下的资源效果
+        Dictionary<ResourceType, float> effects = resourceConfig.GetResourceEffects(actionType, speedLevel);
+        
+        // 应用Rush呼吸状态效果（奔跑时氧气消耗-1）
+        if (actionType == MoveActionType.Run && breathManager != null && 
+            breathManager.GetCurrentState() == BreathState.Rush)
+        {
+            // 检查是否有氧气消耗
+            if (effects.ContainsKey(ResourceType.Oxygen))
+            {
+                // 如果有氧气消耗，减少1点（但不能低于0）
+                float currentOxygenCost = effects[ResourceType.Oxygen];
+                effects[ResourceType.Oxygen] = Mathf.Min(0, currentOxygenCost + 1); 
+                Debug.Log($"Rush呼吸状态效果：奔跑氧气消耗-1，从 {currentOxygenCost} 减少到 {effects[ResourceType.Oxygen]}");
+            }
+        }
+        
+        if (effects.Count > 0)
+        {
+            // 应用资源效果
+            ResourceManager.Instance.ChangeMultipleResources(effects);
+            
+            // 调试输出
+            foreach (var effect in effects)
+            {
+                Debug.Log($"动作: {actionType}, 速度: {speedLevel}, 资源变化: {effect.Key} {effect.Value}");
+            }
+        }
+    }
+    
+    
+    // 修改计算跑步路径距离和时间的方法，加入速度系数
+    private float CalculateRunDistance(float speed)
+    {
+        // 应用速度系数，保持原1-5档的体验
+        float scaledSpeed = speed * speedScaleFactor; 
+        return baseRunDistance * scaledSpeed;
+    }
+    
+    private float CalculateRunTime(float distance, float speed)
+    {
+        // 应用速度系数，保持原1-5档的体验
+        float scaledSpeed = speed * speedScaleFactor;
+        return distance / (baseRunSpeed * scaledSpeed);
+    }
+    
+    // 修改计算跳跃高度和距离的方法，加入速度系数
+    private float CalculateJumpHeight(float speed)
+    {
+        // 应用速度系数，保持原1-5档的体验
+        float scaledSpeed = speed * speedScaleFactor;
+        return baseJumpHeight * Mathf.Lerp(minJumpHeightFactor, maxJumpHeightFactor, (scaledSpeed - 1) / 4f);
+    }
+    
+    private float CalculateJumpDistance(float speed)
+    {
+        // 应用速度系数，保持原1-5档的体验
+        float scaledSpeed = speed * speedScaleFactor;
+        return baseJumpDistance * scaledSpeed;
     }
 } 

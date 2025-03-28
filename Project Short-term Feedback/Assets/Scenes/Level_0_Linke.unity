@@ -6302,6 +6302,13 @@ MonoBehaviour:
   maxSpeed: 5
   minSpeed: 1
   currentSpeed: 5
+  speedScaleFactor: 1.67
+  baseRunDistance: 3
+  baseRunSpeed: 5
+  baseJumpHeight: 2
+  baseJumpDistance: 4
+  minJumpHeightFactor: 0.5
+  maxJumpHeightFactor: 1.5
   playerCollisionRadius: 0.25
   collisionToleranceDistance: 0.15
   obstacleLayer:
@@ -6371,6 +6378,8 @@ MonoBehaviour:
   turnTime: 0.5
   turnIndicatorWidth: 0.1
   turnIndicatorMaterial: {fileID: 0}
+  eventSystem: {fileID: 0}
+  resourceConfig: {fileID: 0}
 --- !u!4 &232871198
 Transform:
   m_ObjectHideFlags: 0
@@ -58543,6 +58552,9 @@ SceneRoots:
   - {fileID: 1298302114}
   - {fileID: 1535255090}
   - {fileID: 1888292200}
+  - {fileID: 410622684}
+  - {fileID: 930512691}
+  - {fileID: 623860758}
   - {fileID: 1896096510}
   - {fileID: 1151555903}
   - {fileID: 460919005}
@@ -58551,6 +58563,3 @@ SceneRoots:
   - {fileID: 108511948}
   - {fileID: 297723684}
   - {fileID: 2124354874}
-  - {fileID: 410622684}
-  - {fileID: 930512691}
-  - {fileID: 623860758}
