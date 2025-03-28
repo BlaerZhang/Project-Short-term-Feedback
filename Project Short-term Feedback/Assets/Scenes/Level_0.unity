@@ -6892,13 +6892,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   footstepsSound: {fileID: 8300000, guid: 4b095e496c27b9a419d98615bde3fdb7, type: 3}
   jumpSound: {fileID: 8300000, guid: 146cc154d70fd5e4fa5b37042c7f2224, type: 3}
-  backgroundMusic: {fileID: 8300000, guid: b717280771a32984f94eb224f14bb947, type: 3}
+  drumLoop: {fileID: 8300000, guid: ac56c24d7faa8414fa42ea1783c006d2, type: 3}
+  melodyLoop: {fileID: 8300000, guid: d45c71f38153c894a8b76e769b051bf1, type: 3}
   footstepsVolume: 1
   jumpVolume: 1
-  bgmVolume: 0.1
+  drumVolume: 0.1
+  melodyVolume: 0.1
   basePitch: 1
   minSfxPitch: 0.3
-  minBgmPitch: 0.5
+  melodyFadeTime: 0.5
 --- !u!4 &438537705
 Transform:
   m_ObjectHideFlags: 0

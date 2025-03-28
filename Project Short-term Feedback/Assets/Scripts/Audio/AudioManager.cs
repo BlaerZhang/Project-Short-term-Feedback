@@ -13,28 +13,34 @@ public class AudioManager : MonoBehaviour
     [Header("音效引用")]
     [SerializeField] private AudioClip footstepsSound;
     [SerializeField] private AudioClip jumpSound;
-    [SerializeField] private AudioClip backgroundMusic; // 添加背景音乐
+    
+    [Header("背景音乐设置")]
+    [SerializeField] private AudioClip drumLoop; // 鼓点循环
+    [SerializeField] private AudioClip melodyLoop; // 旋律循环
 
     [Header("音效设置")]
     [SerializeField, Range(0f, 1f)] private float footstepsVolume = 0.7f;
     [SerializeField, Range(0f, 1f)] private float jumpVolume = 0.8f;
-    [SerializeField, Range(0f, 1f)] private float bgmVolume = 0.5f; // 背景音乐音量
+    [SerializeField, Range(0f, 1f)] private float drumVolume = 0.5f; // 鼓点音量
+    [SerializeField, Range(0f, 1f)] private float melodyVolume = 0.5f; // 旋律音量
     [SerializeField, Range(0.5f, 1.5f)] private float basePitch = 1.0f;
     
     [Header("Pitch设置")]
     [SerializeField, Range(0.1f, 1.0f)] private float minSfxPitch = 0.3f; // 音效最小pitch
-    [SerializeField, Range(0.1f, 1.0f)] private float minBgmPitch = 0.5f; // 背景音乐最小pitch
+    
+    [Header("Fade设置")]
+    [SerializeField, Range(0.1f, 2.0f)] private float melodyFadeTime = 0.5f; // 旋律淡入淡出时间
 
     // 音效播放器
     private AudioSource footstepsSource;
     private AudioSource jumpSource;
-    private AudioSource bgmSource; // 背景音乐播放器
+    private AudioSource drumSource; // 鼓点音频源
+    private AudioSource melodySource; // 旋律音频源
     private AudioSource sfxSource; // 通用音效播放器
 
     // 时间缩放前的默认音调
     private float defaultFootstepsPitch;
     private float defaultJumpPitch;
-    private float defaultBgmPitch;
 
     private void Awake()
     {
@@ -92,27 +98,47 @@ public class AudioManager : MonoBehaviour
         defaultJumpPitch = basePitch;
         Debug.Log($"跳跃音频源设置完成: 音量={jumpVolume}, 音调={basePitch}, 循环={false}");
         
-        // 创建背景音乐音频源
-        if (bgmSource == null)
+        // 创建鼓点循环音频源
+        if (drumSource == null)
         {
-            bgmSource = gameObject.AddComponent<AudioSource>();
-            Debug.Log("已创建背景音乐音频源");
+            drumSource = gameObject.AddComponent<AudioSource>();
+            Debug.Log("已创建鼓点循环音频源");
         }
             
-        // 设置背景音乐音频源
-        bgmSource.clip = backgroundMusic;
-        bgmSource.volume = bgmVolume;
-        bgmSource.loop = true;
-        bgmSource.playOnAwake = true; // 自动播放
-        bgmSource.pitch = basePitch;
-        defaultBgmPitch = basePitch;
-        Debug.Log($"背景音乐音频源设置完成: 音量={bgmVolume}, 音调={basePitch}, 循环={true}");
+        // 设置鼓点循环音频源
+        drumSource.clip = drumLoop;
+        drumSource.volume = drumVolume;
+        drumSource.loop = true;
+        drumSource.playOnAwake = true; // 自动播放
+        drumSource.pitch = 1.0f; // 固定音调
+        Debug.Log($"鼓点循环音频源设置完成: 音量={drumVolume}, 音调=1.0, 循环={true}");
         
-        // 如果有背景音乐，自动播放
-        if (backgroundMusic != null && !bgmSource.isPlaying)
+        // 创建旋律循环音频源
+        if (melodySource == null)
         {
-            bgmSource.Play();
-            Debug.Log("背景音乐已开始播放");
+            melodySource = gameObject.AddComponent<AudioSource>();
+            Debug.Log("已创建旋律循环音频源");
+        }
+            
+        // 设置旋律循环音频源
+        melodySource.clip = melodyLoop;
+        melodySource.volume = 0f; // 初始静音
+        melodySource.loop = true;
+        melodySource.playOnAwake = true; // 自动播放
+        melodySource.pitch = 1.0f; // 固定音调
+        Debug.Log($"旋律循环音频源设置完成: 音量=0(初始静音), 音调=1.0, 循环={true}");
+        
+        // 如果有鼓点循环和旋律循环，自动播放
+        if (drumLoop != null && !drumSource.isPlaying)
+        {
+            drumSource.Play();
+            Debug.Log("鼓点循环已开始播放");
+        }
+        
+        if (melodyLoop != null && !melodySource.isPlaying)
+        {
+            melodySource.Play();
+            Debug.Log("旋律循环已开始播放(初始静音)");
         }
 
         // 创建通用音效音频源
@@ -126,8 +152,8 @@ public class AudioManager : MonoBehaviour
         sfxSource.playOnAwake = false;
         Debug.Log($"通用音效音频源设置完成: 循环={false}");
         
-        // 测试播放音效
-        TestPlaySounds();
+        // 移除自动测试播放音效的功能
+        // TestPlaySounds();
     }
 
     /// <summary>
@@ -163,10 +189,6 @@ public class AudioManager : MonoBehaviour
         float sfxTargetPitch = basePitch * Mathf.Max(Time.timeScale, 0.01f);
         sfxTargetPitch = Mathf.Max(sfxTargetPitch, minSfxPitch); // 应用最小音效音调
 
-        // 计算背景音乐的目标音调
-        float bgmTargetPitch = basePitch * Mathf.Max(Time.timeScale, 0.01f);
-        bgmTargetPitch = Mathf.Max(bgmTargetPitch, minBgmPitch); // 应用最小背景音乐音调
-
         // 更新音效音调
         if (footstepsSource != null && footstepsSource.pitch != sfxTargetPitch)
         {
@@ -177,12 +199,6 @@ public class AudioManager : MonoBehaviour
         {
             jumpSource.DOPitch(sfxTargetPitch, 0.1f).SetUpdate(true);
         }
-        
-        // 更新背景音乐音调
-        if (bgmSource != null && bgmSource.pitch != bgmTargetPitch)
-        {
-            bgmSource.DOPitch(bgmTargetPitch, 0.1f).SetUpdate(true);
-        }
     }
 
     private void Start()
@@ -190,12 +206,14 @@ public class AudioManager : MonoBehaviour
         // 检查并输出音频状态
         Debug.Log($"音频状态 - 脚步声: {(footstepsSound != null ? "已加载" : "未加载")}, " +
                   $"跳跃音效: {(jumpSound != null ? "已加载" : "未加载")}, " +
-                  $"背景音乐: {(backgroundMusic != null ? "已加载" : "未加载")}");
+                  $"鼓点循环: {(drumLoop != null ? "已加载" : "未加载")}, " +
+                  $"旋律循环: {(melodyLoop != null ? "已加载" : "未加载")}");
         
         // 检查音频源状态
         Debug.Log($"音频源状态 - 脚步声: {(footstepsSource != null ? "已创建" : "未创建")}, " +
                   $"跳跃音效: {(jumpSource != null ? "已创建" : "未创建")}, " +
-                  $"背景音乐: {(bgmSource != null ? "已创建" : "未创建")}");
+                  $"鼓点循环: {(drumSource != null ? "已创建" : "未创建")}, " +
+                  $"旋律循环: {(melodySource != null ? "已创建" : "未创建")}");
         
         // 确保音效音量不为0
         if (footstepsSource != null)
@@ -204,11 +222,104 @@ public class AudioManager : MonoBehaviour
         if (jumpSource != null)
             Debug.Log($"跳跃音效音量: {jumpSource.volume}, 音调: {jumpSource.pitch}");
         
-        if (bgmSource != null)
-            Debug.Log($"背景音乐音量: {bgmSource.volume}, 音调: {bgmSource.pitch}, 是否播放: {bgmSource.isPlaying}");
+        if (drumSource != null)
+            Debug.Log($"鼓点循环音量: {drumSource.volume}, 音调: {drumSource.pitch}, 是否播放: {drumSource.isPlaying}");
+            
+        if (melodySource != null)
+            Debug.Log($"旋律循环音量: {melodySource.volume}, 音调: {melodySource.pitch}, 是否播放: {melodySource.isPlaying}");
         
         // 设置音效的音量，确保不为0
         SetSfxVolume(footstepsVolume, jumpVolume);
+        
+        // 寻找GameManager并订阅游戏状态变化事件
+        GameManager gameManager = FindObjectOfType<GameManager>();
+        if (gameManager != null)
+        {
+            // 获取当前状态并设置音乐
+            OnGameStateChanged(gameManager.CurrentState);
+            
+            // 订阅GameManager的状态变化事件
+            gameManager.OnGameStateChangedEvent += OnGameStateChanged;
+            Debug.Log("已订阅GameManager状态变化事件");
+        }
+        else
+        {
+            Debug.LogWarning("未找到GameManager，无法监听游戏状态变化");
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // 取消订阅GameManager事件，防止内存泄漏
+        GameManager gameManager = FindObjectOfType<GameManager>();
+        if (gameManager != null)
+        {
+            gameManager.OnGameStateChangedEvent -= OnGameStateChanged;
+            Debug.Log("已取消订阅GameManager状态变化事件");
+        }
+    }
+
+    /// <summary>
+    /// 游戏状态变化处理
+    /// </summary>
+    public void OnGameStateChanged(GameState newState)
+    {
+        Debug.Log($"AudioManager响应游戏状态变化: {newState}");
+        
+        if (newState == GameState.Executing)
+        {
+            // 进入执行阶段，淡入旋律
+            FadeInMelody();
+        }
+        else
+        {
+            // 离开执行阶段，淡出旋律
+            FadeOutMelody();
+        }
+    }
+    
+    /// <summary>
+    /// 淡入旋律
+    /// </summary>
+    private void FadeInMelody()
+    {
+        if (melodySource != null && melodyLoop != null)
+        {
+            // 停止任何正在进行的淡入淡出动画
+            DOTween.Kill(melodySource);
+            
+            // 确保旋律正在播放
+            if (!melodySource.isPlaying)
+            {
+                melodySource.Play();
+            }
+            
+            // 淡入旋律
+            melodySource.DOFade(melodyVolume, melodyFadeTime)
+                .SetUpdate(true) // 忽略TimeScale
+                .SetEase(Ease.Linear) // 使用线性过渡确保平滑
+                .SetId(melodySource);
+            Debug.Log($"淡入旋律循环: 目标音量={melodyVolume}, 时间={melodyFadeTime}秒, TimeScale={Time.timeScale}");
+        }
+    }
+    
+    /// <summary>
+    /// 淡出旋律
+    /// </summary>
+    private void FadeOutMelody()
+    {
+        if (melodySource != null)
+        {
+            // 停止任何正在进行的淡入淡出动画
+            DOTween.Kill(melodySource);
+            
+            // 淡出旋律
+            melodySource.DOFade(0f, melodyFadeTime)
+                .SetUpdate(true) // 忽略TimeScale
+                .SetEase(Ease.Linear) // 使用线性过渡确保平滑
+                .SetId(melodySource);
+            Debug.Log($"淡出旋律循环: 目标音量=0, 时间={melodyFadeTime}秒, TimeScale={Time.timeScale}");
+        }
     }
 
     /// <summary>
@@ -226,6 +337,25 @@ public class AudioManager : MonoBehaviour
             jumpSource.volume = jumpVolume;
             
         Debug.Log($"已设置音效音量 - 脚步声: {footstepsVolume}, 跳跃: {jumpVolume}");
+    }
+    
+    /// <summary>
+    /// 设置BGM音量
+    /// </summary>
+    public void SetBgmVolume(float drumVol, float melodyVol)
+    {
+        drumVolume = Mathf.Clamp01(drumVol);
+        melodyVolume = Mathf.Clamp01(melodyVol);
+        
+        if (drumSource != null)
+            drumSource.volume = drumVolume;
+            
+        // 不直接设置旋律音量，以免打断fade效果
+        // 只有在执行阶段才会立即应用旋律音量
+        if (melodySource != null && melodySource.volume > 0)
+            melodySource.volume = melodyVolume;
+            
+        Debug.Log($"已设置BGM音量 - 鼓点: {drumVolume}, 旋律: {melodyVolume}");
     }
 
     /// <summary>
@@ -297,45 +427,42 @@ public class AudioManager : MonoBehaviour
     /// <summary>
     /// 播放背景音乐
     /// </summary>
-    public void PlayBackgroundMusic()
+    public void PlayBgm()
     {
-        if (bgmSource == null || backgroundMusic == null) return;
-        
-        if (!bgmSource.isPlaying)
+        // 播放鼓点循环
+        if (drumSource != null && drumLoop != null && !drumSource.isPlaying)
         {
-            bgmSource.Play();
+            drumSource.Play();
+            Debug.Log("开始播放鼓点循环");
+        }
+        
+        // 播放旋律循环（初始静音）
+        if (melodySource != null && melodyLoop != null && !melodySource.isPlaying)
+        {
+            melodySource.volume = 0f; // 确保初始静音
+            melodySource.Play();
+            Debug.Log("开始播放旋律循环(初始静音)");
         }
     }
     
     /// <summary>
     /// 停止背景音乐
     /// </summary>
-    public void StopBackgroundMusic()
+    public void StopBgm()
     {
-        if (bgmSource == null) return;
-        
-        if (bgmSource.isPlaying)
+        // 停止鼓点循环
+        if (drumSource != null && drumSource.isPlaying)
         {
-            bgmSource.Stop();
+            drumSource.Stop();
+            Debug.Log("停止播放鼓点循环");
         }
-    }
-    
-    /// <summary>
-    /// 设置背景音乐音量
-    /// </summary>
-    public void SetBackgroundMusicVolume(float volume)
-    {
-        if (bgmSource == null) return;
         
-        bgmSource.volume = Mathf.Clamp01(volume);
-    }
-    
-    /// <summary>
-    /// 设置最小背景音乐音调
-    /// </summary>
-    public void SetMinBgmPitch(float pitch)
-    {
-        minBgmPitch = Mathf.Clamp(pitch, 0.1f, 1.0f);
+        // 停止旋律循环
+        if (melodySource != null && melodySource.isPlaying)
+        {
+            melodySource.Stop();
+            Debug.Log("停止播放旋律循环");
+        }
     }
     
     /// <summary>
