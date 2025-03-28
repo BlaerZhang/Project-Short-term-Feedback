@@ -12130,8 +12130,8 @@ MonoBehaviour:
   orbitYAxis: {fileID: 1385059407}
   minOrthographicSize: 6
   maxOrthographicSize: 6
-  minFieldOfView: 30
-  maxFieldOfView: 30
+  minFieldOfView: 28
+  maxFieldOfView: 28
   zoomSpeed: 1
   smoothZoomSpeed: 10
 --- !u!1 &464168278

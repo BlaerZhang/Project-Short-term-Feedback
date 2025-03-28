@@ -640,7 +640,7 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    // 计算跑步路径（使用圆弧）
+    // 计算跑步路径（使用直线）
     private void CalculateRunPath(Vector3 targetPoint)
     {
         movementPath.Clear();
@@ -661,17 +661,19 @@ public class PlayerController : MonoBehaviour
         // 获取当前移动半径
         float radius = GetCurrentRunRadius();
         
-        // 计算路径点
+        // 计算最终方向
+        Quaternion rotation = Quaternion.AngleAxis(angle, Vector3.up);
+        Vector3 finalDirection = rotation * currentDirection;
+        
+        // 计算终点位置
+        Vector3 endPos = startPos + finalDirection * radius;
+        
+        // 创建直线路径点
         int segments = pathResolution;
         for (int i = 0; i <= segments; i++)
         {
             float t = i / (float)segments;
-            float currentAngle = angle * t;
-            
-            Quaternion rotation = Quaternion.AngleAxis(currentAngle, Vector3.up);
-            Vector3 direction = rotation * currentDirection;
-            
-            Vector3 position = startPos + direction * radius * t;
+            Vector3 position = Vector3.Lerp(startPos, endPos, t);
             movementPath.Add(position);
         }
     }
