@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 1289960558251479932}
   - component: {fileID: 2648554832224310668}
   - component: {fileID: -8501985761925039602}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Water_tile
   m_TagString: Untagged
   m_Icon: {fileID: 0}
