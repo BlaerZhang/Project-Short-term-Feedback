@@ -16,6 +16,10 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
+    // 定义游戏状态变化的委托和事件
+    public delegate void GameStateChangedHandler(GameState newState);
+    public event GameStateChangedHandler OnGameStateChangedEvent;
+
     [Header("游戏设置")]
     [SerializeField] private PlayerController playerController;  // 玩家控制器引用
     [SerializeField] private float fixedTimeScale = 1.0f;        // 执行阶段的时间流速
@@ -135,8 +139,10 @@ public class GameManager : MonoBehaviour
     // 游戏状态变化时的处理
     private void OnGameStateChanged(GameState newState)
     {
-        // 通知其他系统游戏状态变化
-        // 可以使用事件系统或直接调用
+        Debug.Log($"GameManager: 游戏状态变更为 {newState}");
+        
+        // 触发事件通知所有订阅者
+        OnGameStateChangedEvent?.Invoke(newState);
         
         // 通知玩家控制器
         if (playerController != null)
