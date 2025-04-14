@@ -6,6 +6,8 @@ using DG.Tweening;
 using DG.Tweening.Core;
 using DG.Tweening.Plugins.Options;
 using DG.Tweening.Plugins;
+using TMPro;
+using UnityEngine.UI;
 
 // 移动动作类型枚举
 public enum MoveActionType
@@ -16,12 +18,42 @@ public enum MoveActionType
     Turn    // 转向
 }
 
+// 信心状态枚举
+public enum ConfidenceState
+{
+    Broken,     // 崩溃 (0-24)
+    Unstable,   // 摇摆 (25-49)
+    Stable,     // 稳定 (50-74)
+    Confident,  // 自信 (75-90)
+    Unshakable  // 坚不可摧 (91-100)
+}
+
+// 动作难度枚举
+public enum ActionDifficulty
+{
+    VeryEasy,  // 极其简单 (1-20%)
+    Easy,      // 简单 (21-40%)
+    Medium,    // 中等 (41-60%)
+    Hard,      // 困难 (61-80%)
+    VeryHard   // 极其困难 (81-100%)
+}
+
+// 动作结果枚举
+public enum ActionResult
+{
+    Success,    // 成功
+    Failure,    // 失败
+    Critical,   // 大成功
+    Fumble      // 大失败
+}
+
 public class PlayerController : MonoBehaviour
 {
     [Header("角色属性")]
     [SerializeField] private float maxSpeed = 5f;      // 角色最大移动速度
     [SerializeField] private float minSpeed = 1f;      // 角色最小移动速度
     [SerializeField] private float currentSpeed = 3f;  // 当前速度
+    [SerializeField] private bool allowFreeMovementInSector = false; // 是否允许在扇形范围内自由移动
 
     [Header("角色碰撞设置")]
     [SerializeField] private float playerCollisionRadius = 0.5f; // 角色碰撞半径
@@ -74,6 +106,74 @@ public class PlayerController : MonoBehaviour
     [Tooltip("转向方向指示器材质")]
     [SerializeField] private Material turnIndicatorMaterial;
 
+    [Header("系统设置")]
+    [SerializeField] private bool enableConfidenceSystem = true; // 是否启用信心系统
+    [SerializeField] private bool enableDoubtSystem = true;      // 是否启用自我怀疑系统
+
+    [Header("信心系统")]
+    [SerializeField] private int initialConfidence = 60; // 初始信心值
+    [SerializeField] private int maxConfidence = 100;    // 最大信心值
+    [SerializeField] private int minConfidence = 0;      // 最小信心值
+    [SerializeField] private int currentConfidence;      // 当前信心值
+    [Tooltip("信心值区间：91-100")]
+    [SerializeField] private int unshakableConfidenceBonus = 5; // 坚不可摧状态的检定加成
+    [Tooltip("信心值区间：75-90")]
+    [SerializeField] private int confidentBonus = 3;  // 自信状态的检定加成
+    [Tooltip("信心值区间：50-74")]
+    [SerializeField] private int stableBonus = 0;     // 稳定状态的检定加成
+    [Tooltip("信心值区间：25-49")]
+    [SerializeField] private int unstableBonus = -1;  // 摇摆状态的检定加成
+    [Tooltip("信心值区间：0-24")]
+    [SerializeField] private int brokenBonus = -3;    // 崩溃状态的检定加成
+
+    [Header("自我怀疑系统")]
+    [SerializeField] private int doubtLevel = 0;      // 当前自我怀疑层数
+    [SerializeField] private int maxDoubtLevel = 4;   // 最大自我怀疑层数
+    [Tooltip("自我怀疑层数0的信心惩罚")]
+    [SerializeField] private int doubtPenalty0 = 0;   // 自我怀疑0层的信心惩罚
+    [Tooltip("自我怀疑层数1的信心惩罚")]
+    [SerializeField] private int doubtPenalty1 = 3;   // 自我怀疑1层的信心惩罚
+    [Tooltip("自我怀疑层数2的信心惩罚")]
+    [SerializeField] private int doubtPenalty2 = 7;   // 自我怀疑2层的信心惩罚
+    [Tooltip("自我怀疑层数3的信心惩罚")]
+    [SerializeField] private int doubtPenalty3 = 10;  // 自我怀疑3层的信心惩罚
+    [Tooltip("自我怀疑层数4的信心惩罚")]
+    [SerializeField] private int doubtPenalty4 = 15;  // 自我怀疑4层的信心惩罚
+
+    [Header("动作成功率系统")]
+    [SerializeField] private bool enableActionCheck = true; // 是否启用动作检定
+    [SerializeField] private int diceSize = 20;       // 骰子面数(d20)
+    [Tooltip("极其简单(占最大距离1-20%)的动作难度")]
+    [SerializeField] private int veryEasyDifficulty = 5;  // 极其简单难度
+    [Tooltip("简单(占最大距离21-40%)的动作难度")]
+    [SerializeField] private int easyDifficulty = 10;     // 简单难度
+    [Tooltip("中等(占最大距离41-60%)的动作难度")]
+    [SerializeField] private int mediumDifficulty = 15;   // 中等难度
+    [Tooltip("困难(占最大距离61-80%)的动作难度")]
+    [SerializeField] private int hardDifficulty = 20;     // 困难难度
+    [Tooltip("极其困难(占最大距离81-100%)的动作难度")]
+    [SerializeField] private int veryHardDifficulty = 25; // 极其困难难度
+
+    [Tooltip("极其简单难度成功后的信心奖励")]
+    [SerializeField] private int veryEasySuccessReward = 1;  // 极其简单成功的信心奖励
+    [Tooltip("简单难度成功后的信心奖励")]
+    [SerializeField] private int easySuccessReward = 4;      // 简单成功的信心奖励
+    [Tooltip("中等难度成功后的信心奖励")]
+    [SerializeField] private int mediumSuccessReward = 8;    // 中等成功的信心奖励
+    [Tooltip("困难难度成功后的信心奖励")]
+    [SerializeField] private int hardSuccessReward = 14;     // 困难成功的信心奖励
+    [Tooltip("极其困难难度成功后的信心奖励")]
+    [SerializeField] private int veryHardSuccessReward = 20; // 极其困难成功的信心奖励
+
+    [Header("疲劳值系统")]
+    [SerializeField] private float baseFatigueCost = 5f; // 起步疲劳值
+    [SerializeField] private float fatiguePerMeter = 0.5f; // 每米消耗的疲劳值
+    [SerializeField] private TextMeshProUGUI fatigueText; // 疲劳值文本
+
+    [Header("回合系统")]
+    [SerializeField] private int currentTurn = 1;     // 当前回合数
+    [SerializeField] private bool isTurnActive = true; // 当前回合是否可以行动
+
     // 状态变量
     private MoveActionType currentAction = MoveActionType.None; // 当前选择的动作
     private Vector3 moveTargetPosition;  // 移动目标位置
@@ -89,6 +189,21 @@ public class PlayerController : MonoBehaviour
     private bool pathCollision = false;  // 路径是否发生碰撞
     private GameState gameState;         // 游戏状态
     private AudioManager audioManager;    // 添加对AudioManager的引用
+    private FootAreaGenerator footAreaGenerator; // 添加对FootAreaGenerator的引用
+    
+    // 回合和信心系统相关变量
+    private ConfidenceState confidenceState = ConfidenceState.Stable; // 当前信心状态
+    private ActionDifficulty currentDifficulty = ActionDifficulty.Medium; // 当前动作难度
+    private bool actionSucceeded = false; // 上一次动作是否成功
+    private bool turnSkipped = false; // 是否跳过了回合
+    
+    // 动作检定相关信息显示UI
+    [SerializeField] private TextMeshProUGUI confidenceStateText; // 信心状态文本
+    [SerializeField] private TextMeshProUGUI actionDifficultyText; // 动作难度文本
+    [SerializeField] private TextMeshProUGUI turnCounterText; // 回合计数器
+    [SerializeField] private Slider confidenceSlider; // 信心值滑块
+    [SerializeField] private TextMeshProUGUI successRateText; // 成功率文本
+    [SerializeField] private TextMeshProUGUI doubtLevelText; // 自我怀疑层数文本
 
     private void Awake()
     {
@@ -103,6 +218,10 @@ public class PlayerController : MonoBehaviour
         
         // 初始化朝向
         currentDirection = transform.forward;
+
+        // 初始化信心系统
+        currentConfidence = initialConfidence;
+        UpdateConfidenceState();
 
         // 创建一个子物体来容纳LineRenderer，使其能够贴在地面上
         GameObject lineRendererObj = new GameObject("PathPreview");
@@ -189,6 +308,13 @@ public class PlayerController : MonoBehaviour
             Debug.LogWarning("PlayerController: 未找到GameManager！部分功能可能无法正常工作。");
         }
 
+        // 获取FootAreaGenerator引用
+        footAreaGenerator = FindObjectOfType<FootAreaGenerator>();
+        if (footAreaGenerator == null)
+        {
+            Debug.LogWarning("PlayerController: 未找到FootAreaGenerator！颜色轮换功能将无法工作。");
+        }
+
         // 初始化动画控制器
         if (characterAnimator == null)
         {
@@ -224,6 +350,12 @@ public class PlayerController : MonoBehaviour
                 case GameState.Planning:
                     // 处理动作选择输入
                     HandleActionSelection();
+                    
+                    // 处理空格键跳过回合
+                    if (Keyboard.current.spaceKey.wasPressedThisFrame && isTurnActive)
+                    {
+                        SkipTurn();
+                    }
                     break;
 
                 case GameState.Targeting:
@@ -269,10 +401,16 @@ public class PlayerController : MonoBehaviour
         {
             ChangeSpeed(5);
         }
+        
+        // 更新UI
+        UpdateUI();
     }
 
     private void HandleActionSelection()
     {
+        // 如果当前回合不可行动，直接返回
+        if (!isTurnActive) return;
+        
         // Q键选择跑步
         if (Keyboard.current.qKey.wasPressedThisFrame)
         {
@@ -406,6 +544,15 @@ public class PlayerController : MonoBehaviour
             // 显示落点标记
             UpdateLandingMarker(validPoint, isFullyValid);
 
+            // 计算距离和动作难度
+            float distance = Vector3.Distance(transform.position, validPoint);
+            float maxDistance = GetCurrentRunRadius();
+            ActionDifficulty difficulty = CalculateActionDifficulty(distance, maxDistance);
+            currentDifficulty = difficulty;
+            
+            // 更新成功率显示
+            UpdateSuccessRateDisplay(difficulty);
+
             // 如果鼠标左键点击且位置有效，开始移动
             if (Mouse.current.leftButton.wasPressedThisFrame && isFullyValid)
             {
@@ -417,6 +564,8 @@ public class PlayerController : MonoBehaviour
             // 没有命中地面，隐藏路径和标记
             HidePathPreview();
             HideLandingMarker();
+            // 隐藏动作UI
+            HideActionUI();
         }
     }
 
@@ -444,6 +593,15 @@ public class PlayerController : MonoBehaviour
             // 显示落点标记
             UpdateLandingMarker(validPoint, isFullyValid);
 
+            // 计算距离和动作难度
+            float distance = Vector3.Distance(transform.position, validPoint);
+            float maxDistance = GetCurrentJumpRadius();
+            ActionDifficulty difficulty = CalculateActionDifficulty(distance, maxDistance);
+            currentDifficulty = difficulty;
+            
+            // 更新成功率显示
+            UpdateSuccessRateDisplay(difficulty);
+
             // 如果鼠标左键点击且位置有效，开始跳跃
             if (Mouse.current.leftButton.wasPressedThisFrame && isFullyValid)
             {
@@ -455,6 +613,8 @@ public class PlayerController : MonoBehaviour
             // 没有命中地面，隐藏路径和标记
             HidePathPreview();
             HideLandingMarker();
+            // 隐藏动作UI
+            HideActionUI();
         }
     }
 
@@ -465,8 +625,11 @@ public class PlayerController : MonoBehaviour
         Vector3 toTarget = point - transform.position;
         toTarget.y = 0; // 确保在水平面上计算
 
+        // 目标点距离
+        float distance = toTarget.magnitude;
+
         // 如果目标点太近，视为无效
-        if (toTarget.magnitude < 0.5f)
+        if (distance < 0.5f)
         {
             validPoint = point;
             return false;
@@ -477,22 +640,60 @@ public class PlayerController : MonoBehaviour
 
         // 根据当前速度计算允许的转向角度
         float allowedAngle = Mathf.Lerp(maxTurnAngle, minTurnAngle, (currentSpeed - minSpeed) / (maxSpeed - minSpeed)) * 0.5f;
-
-        // 计算最终角度（限制在允许范围内）
-        float targetAngle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
         
         // 获取当前移动半径
         float currentRadius = GetCurrentRunRadius();
 
-        // 计算圆弧上的有效点
-        Quaternion rotation = Quaternion.AngleAxis(targetAngle, Vector3.up);
-        validPoint = transform.position + (rotation * currentDirection) * currentRadius;
+        // 检查角度和距离是否在允许范围内
+        bool withinAngle = Mathf.Abs(angle) <= allowedAngle;
+        bool withinDistance = distance >= minMovementRadius && distance <= currentRadius;
 
-        // 检查落点是否与障碍物碰撞
+        if (allowFreeMovementInSector)
+        {
+            Vector3 adjustedPoint = point;
+            bool needsAdjustment = false;
+
+            // 调整角度
+            if (!withinAngle)
+            {
+                needsAdjustment = true;
+                // 限制角度到允许范围
+                float clampedAngle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
+                // 计算新的方向
+                Quaternion rotation = Quaternion.AngleAxis(clampedAngle, Vector3.up);
+                Vector3 newDirection = rotation * currentDirection;
+                // 保持原始距离
+                adjustedPoint = transform.position + newDirection * distance;
+            }
+
+            // 调整距离
+            if (!withinDistance)
+            {
+                needsAdjustment = true;
+                Vector3 direction = (adjustedPoint - transform.position).normalized;
+                float clampedDistance = Mathf.Clamp(distance, minMovementRadius, currentRadius);
+                adjustedPoint = transform.position + direction * clampedDistance;
+            }
+
+            // 使用调整后的点
+            validPoint = adjustedPoint;
+        }
+        else
+        {
+            // 原始行为：只能移动到圆弧上
+            if (!withinAngle)
+            {
+                // 如果角度超出范围，限制到最大允许角度
+                angle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
+            }
+            Quaternion rotation = Quaternion.AngleAxis(angle, Vector3.up);
+        validPoint = transform.position + (rotation * currentDirection) * currentRadius;
+        }
+
+        // 检查最终确定的落点是否与障碍物碰撞
         landingPointCollision = CheckPointCollision(validPoint);
 
-        // 所有落在圆弧上的点都是有效的（角度和半径的限制）
-        // 但如果与障碍物碰撞，则返回false
+        // 只有当落点不碰撞时，才返回true
         return !landingPointCollision;
     }
 
@@ -503,8 +704,11 @@ public class PlayerController : MonoBehaviour
         Vector3 toTarget = point - transform.position;
         toTarget.y = 0; // 确保在水平面上计算
 
+        // 目标点距离
+        float distance = toTarget.magnitude;
+
         // 如果目标点太近，视为无效
-        if (toTarget.magnitude < 0.5f)
+        if (distance < 0.5f)
         {
             validPoint = point;
             return false;
@@ -515,22 +719,60 @@ public class PlayerController : MonoBehaviour
 
         // 根据当前速度计算允许的跳跃角度
         float allowedAngle = Mathf.Lerp(jumpMaxAngle, jumpMinAngle, (currentSpeed - minSpeed) / (maxSpeed - minSpeed)) * 0.5f;
-
-        // 计算最终角度（限制在允许范围内）
-        float targetAngle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
         
         // 获取当前跳跃半径
         float currentRadius = GetCurrentJumpRadius();
 
-        // 计算圆弧上的有效点
-        Quaternion rotation = Quaternion.AngleAxis(targetAngle, Vector3.up);
+        // 检查角度和距离是否在允许范围内
+        bool withinAngle = Mathf.Abs(angle) <= allowedAngle;
+        bool withinDistance = distance >= jumpMinRadius && distance <= currentRadius;
+
+        if (allowFreeMovementInSector)
+        {
+            Vector3 adjustedPoint = point;
+            bool needsAdjustment = false;
+
+            // 调整角度
+            if (!withinAngle)
+            {
+                needsAdjustment = true;
+                // 限制角度到允许范围
+                float clampedAngle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
+                // 计算新的方向
+                Quaternion rotation = Quaternion.AngleAxis(clampedAngle, Vector3.up);
+                Vector3 newDirection = rotation * currentDirection;
+                // 保持原始距离
+                adjustedPoint = transform.position + newDirection * distance;
+            }
+
+            // 调整距离
+            if (!withinDistance)
+            {
+                needsAdjustment = true;
+                Vector3 direction = (adjustedPoint - transform.position).normalized;
+                float clampedDistance = Mathf.Clamp(distance, jumpMinRadius, currentRadius);
+                adjustedPoint = transform.position + direction * clampedDistance;
+            }
+
+            // 使用调整后的点
+            validPoint = adjustedPoint;
+        }
+        else
+        {
+            // 原始行为：只能移动到圆弧上
+            if (!withinAngle)
+            {
+                // 如果角度超出范围，限制到最大允许角度
+                angle = Mathf.Clamp(angle, -allowedAngle, allowedAngle);
+            }
+            Quaternion rotation = Quaternion.AngleAxis(angle, Vector3.up);
         validPoint = transform.position + (rotation * currentDirection) * currentRadius;
+        }
 
         // 检查落点是否与障碍物碰撞
         landingPointCollision = CheckPointCollision(validPoint);
 
-        // 所有落在圆弧上的点都是有效的（角度和半径的限制）
-        // 但如果与障碍物碰撞，则返回false
+        // 只有当落点不碰撞时，才返回true
         return !landingPointCollision;
     }
 
@@ -539,10 +781,6 @@ public class PlayerController : MonoBehaviour
     {
         // 计算路径点
         CalculateRunPath(targetPoint);
-
-        // 计算最终朝向
-        Vector3 finalDirection = (targetPoint - transform.position).normalized;
-        finalDirection.y = 0;
 
         // 检查路径是否与障碍物碰撞
         pathCollision = CheckPathCollision(movementPath);
@@ -652,7 +890,7 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    // 计算跑步路径（使用圆弧）
+    // 计算跑步路径（使用圆弧或直线）
     private void CalculateRunPath(Vector3 targetPoint)
     {
         movementPath.Clear();
@@ -661,6 +899,16 @@ public class PlayerController : MonoBehaviour
         Vector3 toTarget = targetPoint - startPos;
         toTarget.y = 0;
         
+        if (allowFreeMovementInSector)
+        {
+            // 当启用扇形内自由移动时，使用直线路径
+            // 只需要起点和终点
+            movementPath.Add(startPos);
+            movementPath.Add(targetPoint);
+        }
+        else
+        {
+            // 原始行为：使用圆弧路径
         // 计算当前朝向与目标方向的夹角
         float angle = Vector3.SignedAngle(currentDirection, toTarget.normalized, Vector3.up);
         
@@ -685,6 +933,7 @@ public class PlayerController : MonoBehaviour
             
             Vector3 position = startPos + direction * radius * t;
             movementPath.Add(position);
+            }
         }
     }
 
@@ -694,6 +943,8 @@ public class PlayerController : MonoBehaviour
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
+        // 隐藏动作UI
+        HideActionUI();
 
         // 计算路径
         CalculateRunPath(targetPoint);
@@ -745,12 +996,77 @@ public class PlayerController : MonoBehaviour
             Debug.LogWarning("PlayerController: 无法播放脚步声，audioManager为null");
         }
 
+        // 执行动作检定
+        ActionResult result = PerformActionCheck(currentDifficulty);
+        
+        // 标记回合已使用
+        isTurnActive = false;
+        
+        // 根据检定结果执行不同的移动
+        switch (result)
+        {
+            case ActionResult.Success:
+            case ActionResult.Critical:
+                // 动作成功，正常移动
+                actionSucceeded = true;
+                Debug.Log("跑步动作检定成功！");
+                
+                // 重置自我怀疑层数
+                ResetDoubtLevel();
+                
+                // 增加信心值
+                int reward = GetSuccessReward(currentDifficulty);
+                if (result == ActionResult.Critical)
+                {
+                    reward = reward * 2; // 大成功，双倍奖励
+                    Debug.Log("大成功！获得双倍信心奖励");
+                }
+                ChangeConfidence(reward);
+
         // 启动移动协程
-        StartCoroutine(RunningCoroutine(movementPath));
+                StartCoroutine(RunningCoroutine(movementPath, true, 1.0f));
+                break;
+                
+            case ActionResult.Failure:
+                // 动作失败，移动到部分路径
+                actionSucceeded = false;
+                Debug.Log("跑步动作检定失败！将只移动部分距离");
+                
+                // 增加自我怀疑层数
+                IncreaseDoubtLevel();
+                
+                // 应用自我怀疑惩罚
+                ApplyDoubtPenalty();
+                
+                // 计算失败后的随机停止点（完成20%-70%的路径）
+                float failureProgress = Random.Range(0.2f, 0.7f);
+                
+                // 启动移动协程（部分移动）
+                StartCoroutine(RunningCoroutine(movementPath, false, failureProgress));
+                break;
+                
+            case ActionResult.Fumble:
+                // 大失败，几乎不移动或摔倒
+                actionSucceeded = false;
+                Debug.Log("跑步动作大失败！几乎不移动");
+                
+                // 增加自我怀疑层数（大失败增加2层）
+                doubtLevel = Mathf.Min(doubtLevel + 2, maxDoubtLevel);
+                
+                // 应用自我怀疑惩罚
+                ApplyDoubtPenalty();
+                
+                // 计算大失败后的停止点（最多完成10%的路径）
+                float fumbleProgress = Random.Range(0.01f, 0.1f);
+                
+                // 启动移动协程（几乎不移动）
+                StartCoroutine(RunningCoroutine(movementPath, false, fumbleProgress));
+                break;
+        }
     }
 
     // 使用协程执行跑步移动
-    private IEnumerator RunningCoroutine(List<Vector3> path)
+    private IEnumerator RunningCoroutine(List<Vector3> path, bool fullMovement, float progress)
     {
         if (path.Count < 2)
             yield break;
@@ -758,11 +1074,73 @@ public class PlayerController : MonoBehaviour
         isMoving = true;
         canMove = false;
 
+        // 处理部分移动的情况
+        List<Vector3> actualPath = new List<Vector3>(path);
+        Vector3 finalPosition;
+        
+        if (!fullMovement && progress < 1.0f)
+        {
+            // 计算实际要移动的路径点
+            int totalPoints = path.Count;
+            
+            // 使用progress来确定停止点
+            float stopT = progress; // 0.2-0.7之间的随机值
+            int targetIndex = Mathf.Max(1, Mathf.FloorToInt(totalPoints * stopT));
+            
+            if (targetIndex < totalPoints)
+            {
+                // 计算精确的停止点，而不是直接使用路径点
+                float exactT = stopT * (totalPoints - 1);
+                int prevIndex = Mathf.FloorToInt(exactT);
+                int nextIndex = Mathf.Min(prevIndex + 1, totalPoints - 1);
+                float lerpT = exactT - prevIndex;
+                
+                // 在两个路径点之间进行插值
+                Vector3 prevPoint = path[prevIndex];
+                Vector3 nextPoint = path[nextIndex];
+                finalPosition = Vector3.Lerp(prevPoint, nextPoint, lerpT);
+                
+                // 创建到停止点的新路径
+                actualPath = new List<Vector3>();
+                for (int i = 0; i <= prevIndex; i++)
+                {
+                    actualPath.Add(path[i]);
+                }
+                actualPath.Add(finalPosition);
+                
+                Debug.LogFormat("动作失败，在路径{0:P0}处停止，最终路径点数：{1}", 
+                    stopT, actualPath.Count);
+            }
+            else
+            {
+                finalPosition = path[path.Count - 1];
+            }
+        }
+        else
+        {
+            finalPosition = path[path.Count - 1];
+        }
+
         // 获取初始和目标朝向
-        Vector3 finalPosition = path[path.Count - 1];
         Vector3 finalDirection = (finalPosition - transform.position).normalized;
         finalDirection.y = 0;
         Quaternion targetRotation = Quaternion.LookRotation(finalDirection);
+
+        // 计算移动时间（如果是直线，可能需要调整时间）
+        float pathMoveDuration = moveTime;
+        
+        // 如果是部分移动，根据进度缩短时间
+        if (!fullMovement)
+        {
+            pathMoveDuration *= progress;
+        }
+        
+        if (allowFreeMovementInSector && actualPath.Count == 2)
+        {
+            // 对于直线移动，根据距离和速度计算时间
+            float distance = Vector3.Distance(actualPath[0], actualPath[1]);
+            pathMoveDuration = distance / currentSpeed;
+        }
 
         // 使用DOTween创建移动
         Transform t = transform; // 缓存transform引用提高性能
@@ -770,31 +1148,25 @@ public class PlayerController : MonoBehaviour
 
         // 记录起始时间和路径总时长
         float startTime = Time.time;
-        float totalTime = moveTime;
+        float totalTime = pathMoveDuration;
 
         // 添加路径移动
-        moveSequence.Append(t.DOPath(path.ToArray(), moveTime, PathType.Linear)
+        moveSequence.Append(t.DOPath(actualPath.ToArray(), pathMoveDuration, PathType.Linear)
             .SetEase(moveEase)
             .OnUpdate(() => {
                 // 计算动作进度基于已过时长，这避免了路径计算问题
                 if (gameManager != null)
                 {
                     float elapsedTime = Time.time - startTime;
-                    float progress = elapsedTime / totalTime;
+                    float currentProgress = elapsedTime / totalTime;
                     
                     // 通知GameManager更新进度
-                    gameManager.UpdateActionProgressByDistance(progress);
-                    
-                    // 调试日志
-                    if (currentSpeed <= 1.5f && Vector3.Angle(currentDirection, finalDirection) > 60f)
-                    {
-                        Debug.LogFormat("大角度慢速跑步进度: {0:P2}", progress);
-                    }
+                    gameManager.UpdateActionProgressByDistance(currentProgress);
                 }
             }));
 
         // 同时进行朝向旋转
-        t.DORotateQuaternion(targetRotation, moveTime)
+        t.DORotateQuaternion(targetRotation, pathMoveDuration * 0.5f) // 旋转时间为移动时间的一半，使转向更快
             .SetEase(rotateEase);
 
         // 等待移动完成
@@ -830,10 +1202,9 @@ public class PlayerController : MonoBehaviour
             audioManager.StopFootsteps();
             Debug.Log("PlayerController: 尝试停止脚步声");
         }
-        else
-        {
-            Debug.LogWarning("PlayerController: 无法停止脚步声，audioManager为null");
-        }
+        
+        // 结束回合
+        EndTurn();
     }
 
     // 开始跳跃
@@ -842,6 +1213,8 @@ public class PlayerController : MonoBehaviour
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
+        // 隐藏动作UI
+        HideActionUI();
 
         // 计算跳跃轨迹
         List<Vector3> jumpPath = CalculateJumpPath(targetPoint);
@@ -877,13 +1250,78 @@ public class PlayerController : MonoBehaviour
         {
             Debug.LogWarning("PlayerController: 无法播放跳跃音效，audioManager为null");
         }
+        
+        // 执行动作检定
+        ActionResult result = PerformActionCheck(currentDifficulty);
+        
+        // 标记回合已使用
+        isTurnActive = false;
+        
+        // 根据检定结果执行不同的跳跃
+        switch (result)
+        {
+            case ActionResult.Success:
+            case ActionResult.Critical:
+                // 动作成功，正常跳跃
+                actionSucceeded = true;
+                Debug.Log("跳跃动作检定成功！");
+                
+                // 重置自我怀疑层数
+                ResetDoubtLevel();
+                
+                // 增加信心值
+                int reward = GetSuccessReward(currentDifficulty);
+                if (result == ActionResult.Critical)
+                {
+                    reward = reward * 2; // 大成功，双倍奖励
+                    Debug.Log("大成功！获得双倍信心奖励");
+                }
+                ChangeConfidence(reward);
 
         // 启动跳跃协程
-        StartCoroutine(JumpingCoroutine(targetPoint, jumpPath));
+                StartCoroutine(JumpingCoroutine(targetPoint, jumpPath, true, 1.0f));
+                break;
+                
+            case ActionResult.Failure:
+                // 动作失败，跳跃到部分距离
+                actionSucceeded = false;
+                Debug.Log("跳跃动作检定失败！将只跳跃部分距离");
+                
+                // 增加自我怀疑层数
+                IncreaseDoubtLevel();
+                
+                // 应用自我怀疑惩罚
+                ApplyDoubtPenalty();
+                
+                // 计算失败后的随机停止点（完成20%-70%的路径）
+                float failureProgress = Random.Range(0.2f, 0.7f);
+                
+                // 启动跳跃协程（部分移动）
+                StartCoroutine(JumpingCoroutine(targetPoint, jumpPath, false, failureProgress));
+                break;
+                
+            case ActionResult.Fumble:
+                // 大失败，几乎不跳跃或摔倒
+                actionSucceeded = false;
+                Debug.Log("跳跃动作大失败！几乎不移动");
+                
+                // 增加自我怀疑层数（大失败增加2层）
+                doubtLevel = Mathf.Min(doubtLevel + 2, maxDoubtLevel);
+                
+                // 应用自我怀疑惩罚
+                ApplyDoubtPenalty();
+                
+                // 计算大失败后的停止点（最多完成10%的路径）
+                float fumbleProgress = Random.Range(0.01f, 0.1f);
+                
+                // 启动跳跃协程（几乎不移动）
+                StartCoroutine(JumpingCoroutine(targetPoint, jumpPath, false, fumbleProgress));
+                break;
+        }
     }
 
     // 使用协程执行跳跃
-    private IEnumerator JumpingCoroutine(Vector3 targetPoint, List<Vector3> jumpPath)
+    private IEnumerator JumpingCoroutine(Vector3 targetPoint, List<Vector3> jumpPath, bool fullMovement, float progress)
     {
         if (jumpPath.Count < 2)
             yield break;
@@ -891,34 +1329,78 @@ public class PlayerController : MonoBehaviour
         isMoving = true;
         canMove = false;
 
+        // 处理部分移动的情况
+        List<Vector3> actualPath = new List<Vector3>();
+        Vector3 finalPosition;
+        
+        if (!fullMovement && progress < 1.0f)
+        {
+            // 使用progress作为停止点的位置（0.2-0.7之间的随机值）
+            float stopT = progress;
+            int totalPoints = jumpPath.Count;
+            
+            // 计算精确的停止点
+            float exactT = stopT * (totalPoints - 1);
+            int prevIndex = Mathf.FloorToInt(exactT);
+            int nextIndex = Mathf.Min(prevIndex + 1, totalPoints - 1);
+            float lerpT = exactT - prevIndex;
+            
+            // 在两个路径点之间进行插值
+            Vector3 prevPoint = jumpPath[prevIndex];
+            Vector3 nextPoint = jumpPath[nextIndex];
+            finalPosition = Vector3.Lerp(prevPoint, nextPoint, lerpT);
+            
+            // 创建到停止点的新路径
+            for (int i = 0; i <= prevIndex; i++)
+            {
+                actualPath.Add(jumpPath[i]);
+            }
+            actualPath.Add(finalPosition);
+            
+            Debug.LogFormat("跳跃失败，在路径{0:P0}处停止，最终路径点数：{1}", 
+                stopT, actualPath.Count);
+        }
+        else
+        {
+            actualPath = jumpPath;
+            finalPosition = targetPoint;
+        }
+
         // 计算跳跃开始和结束的朝向
-        Vector3 jumpDirection = (targetPoint - transform.position).normalized;
+        Vector3 jumpDirection = (finalPosition - transform.position).normalized;
         jumpDirection.y = 0;
         Quaternion targetRotation = Quaternion.LookRotation(jumpDirection);
 
+        // 计算跳跃时间（根据进度调整）
+        float jumpDuration = jumpTime;
+        if (!fullMovement)
+        {
+            jumpDuration *= progress;
+        }
+
         // 记录开始时间和总时长
         float startTime = Time.time;
-        float totalTime = jumpTime;
+        float totalTime = jumpDuration;
 
         // 使用DOTween创建跳跃序列
         Transform t = transform; // 缓存transform引用提高性能
         Sequence jumpSequence = DOTween.Sequence();
 
         // 先旋转到跳跃方向
-        jumpSequence.Append(t.DORotateQuaternion(targetRotation, jumpTime * 0.2f));
+        jumpSequence.Append(t.DORotateQuaternion(targetRotation, jumpDuration * 0.2f));
 
         // 然后沿路径移动
-        jumpSequence.Append(t.DOPath(jumpPath.ToArray(), jumpTime * 0.8f, PathType.CatmullRom)
+        jumpSequence.Append(t.DOPath(actualPath.ToArray(), jumpDuration * 0.8f, PathType.CatmullRom)
             .SetEase(Ease.OutQuad)
             .OnUpdate(() => {
                 // 计算基于时间的进度
                 if (gameManager != null)
                 {
                     float elapsedTime = Time.time - startTime;
-                    float progress = elapsedTime / totalTime;
+                    float currentProgress = elapsedTime / totalTime;
                     
                     // 通知GameManager更新进度
-                    gameManager.UpdateActionProgressByDistance(progress);
+                    gameManager.UpdateActionProgressByDistance(currentProgress);
                 }
             }));
 
@@ -926,13 +1408,13 @@ public class PlayerController : MonoBehaviour
         yield return jumpSequence.WaitForCompletion();
 
         // 确保精确位置
-        t.position = targetPoint;
+        t.position = finalPosition;
         t.rotation = targetRotation;
             
         // 更新当前朝向
         currentDirection = jumpDirection;
             
-        // 重置状态 - 移除设置IsJumping为false的代码，因为使用了Trigger
+        // 重置状态
         isMoving = false;
         canMove = true;
         currentAction = MoveActionType.None;
@@ -942,6 +1424,9 @@ public class PlayerController : MonoBehaviour
         {
             gameManager.EndExecutionPhase();
         }
+        
+        // 结束回合
+        EndTurn();
     }
 
     // 更新可移动范围的圆弧指示器
@@ -1407,6 +1892,17 @@ public class PlayerController : MonoBehaviour
             // 显示转向方向指示器
             ShowTurnDirectionIndicator(targetDirection);
             
+            // 计算角度差（转向难度基于角度差）
+            float angleDifference = Vector3.Angle(currentDirection, targetDirection);
+            
+            // 基于角度差计算难度（使用最大180度作为基准）
+            float maxTurnAngle = 180f;
+            ActionDifficulty difficulty = CalculateActionDifficulty(angleDifference, maxTurnAngle);
+            currentDifficulty = difficulty;
+            
+            // 更新成功率显示
+            UpdateSuccessRateDisplay(difficulty);
+            
             // 如果鼠标左键点击，开始转向
             if (Mouse.current.leftButton.wasPressedThisFrame)
             {
@@ -1417,31 +1913,9 @@ public class PlayerController : MonoBehaviour
         {
             // 没有命中地面，隐藏路径
             HidePathPreview();
+            // 隐藏动作UI
+            HideActionUI();
         }
-    }
-    
-    // 显示转向方向指示器
-    private void ShowTurnDirectionIndicator(Vector3 direction)
-    {
-        // 计算起点和终点
-        Vector3 startPos = transform.position;
-        startPos.y += pathHeightOffset;
-        Vector3 endPos = startPos + direction * turnIndicatorLength;
-        
-        // 设置路径预览线条渲染器的点
-        pathPreview.positionCount = 2;
-        pathPreview.SetPosition(0, startPos);
-        pathPreview.SetPosition(1, endPos);
-        
-        // 设置线条宽度
-        pathPreview.startWidth = turnIndicatorWidth;
-        pathPreview.endWidth = 0f; // 末端为尖头形状
-        
-        // 设置转向指示器材质
-        pathPreview.material = turnIndicatorMaterial != null ? turnIndicatorMaterial : validPathMaterial;
-        
-        // 确保路径可见
-        pathPreview.enabled = true;
     }
     
     // 开始执行转向
@@ -1449,6 +1923,8 @@ public class PlayerController : MonoBehaviour
     {
         // 隐藏路径预览
         HidePathPreview();
+        // 隐藏动作UI
+        HideActionUI();
         
         // 记录当前朝向和目标朝向
         Vector3 currentForward = transform.forward;
@@ -1482,22 +1958,87 @@ public class PlayerController : MonoBehaviour
             gameManager.StartExecutionPhase();
         }
         
-        // 使用协程执行旋转
-        StartCoroutine(TurningCoroutine(angle));
+        // 执行动作检定
+        ActionResult result = PerformActionCheck(currentDifficulty);
+        
+        // 标记回合已使用
+        isTurnActive = false;
+        
+        // 根据检定结果执行不同的转向
+        switch (result)
+        {
+            case ActionResult.Success:
+            case ActionResult.Critical:
+                // 动作成功，正常转向
+                actionSucceeded = true;
+                Debug.Log("转向动作检定成功！");
+                
+                // 重置自我怀疑层数
+                ResetDoubtLevel();
+                
+                // 增加信心值
+                int reward = GetSuccessReward(currentDifficulty);
+                if (result == ActionResult.Critical)
+                {
+                    reward = reward * 2; // 大成功，双倍奖励
+                    Debug.Log("大成功！获得双倍信心奖励");
+                }
+                ChangeConfidence(reward);
+                
+                // 启动转向协程
+                StartCoroutine(TurningCoroutine(angle, true, 1.0f));
+                break;
+                
+            case ActionResult.Failure:
+                // 动作失败，转向一部分角度
+                actionSucceeded = false;
+                Debug.Log("转向动作检定失败！将只转向部分角度");
+                
+                // 增加自我怀疑层数
+                IncreaseDoubtLevel();
+                
+                // 应用自我怀疑惩罚
+                ApplyDoubtPenalty();
+                
+                // 计算失败后的随机转向比例（完成20%-70%的角度）
+                float failureProgress = Random.Range(0.2f, 0.7f);
+                
+                // 启动转向协程（部分转向）
+                StartCoroutine(TurningCoroutine(angle * failureProgress, false, failureProgress));
+                break;
+                
+            case ActionResult.Fumble:
+                // 大失败，几乎不转向或朝错误方向转少量角度
+                actionSucceeded = false;
+                Debug.Log("转向动作大失败！几乎不转向或反向");
+                
+                // 增加自我怀疑层数（大失败增加2层）
+                doubtLevel = Mathf.Min(doubtLevel + 2, maxDoubtLevel);
+                
+                // 应用自我怀疑惩罚
+                ApplyDoubtPenalty();
+                
+                // 计算大失败后的转向角度，可能是反向的微小转向
+                float fumbleProgress = Random.Range(-0.1f, 0.1f);
+                
+                // 启动转向协程（几乎不转向或反向）
+                StartCoroutine(TurningCoroutine(angle * fumbleProgress, false, Mathf.Abs(fumbleProgress)));
+                break;
+        }
     }
     
     // 转向协程
-    private IEnumerator TurningCoroutine(float angle)
+    private IEnumerator TurningCoroutine(float angle, bool fullTurn, float progress)
     {
         isMoving = true;
         canMove = false;
         
         // 记录开始时间和总时长
         float startTime = Time.time;
-        float totalTime = turnTime;
+        float totalTime = turnTime * progress;
         
         // 计算旋转速度（度/秒）
-        float rotationSpeed = Mathf.Abs(angle) / turnTime;
+        float rotationSpeed = Mathf.Abs(angle) / totalTime;
         
         // 记录初始旋转和已旋转角度
         Quaternion startRotation = transform.rotation;
@@ -1525,8 +2066,8 @@ public class PlayerController : MonoBehaviour
             if (gameManager != null)
             {
                 float elapsedTime = Time.time - startTime;
-                float progress = elapsedTime / totalTime;
-                gameManager.UpdateActionProgressByDistance(progress);
+                float currentProgress = elapsedTime / totalTime;
+                gameManager.UpdateActionProgressByDistance(currentProgress);
             }
             
             yield return null;
@@ -1554,14 +2095,486 @@ public class PlayerController : MonoBehaviour
         {
             gameManager.EndExecutionPhase();
         }
+        
+        // 结束回合
+        EndTurn();
+    }
+
+    private void ApplyDoubtPenalty()
+    {
+        if (!enableDoubtSystem) return;
+        
+        int penalty = 0;
+        
+        // 根据自我怀疑层数确定惩罚
+        switch (doubtLevel)
+        {
+            case 0: penalty = doubtPenalty0; break;
+            case 1: penalty = doubtPenalty1; break;
+            case 2: penalty = doubtPenalty2; break;
+            case 3: penalty = doubtPenalty3; break;
+            case 4: penalty = doubtPenalty4; break;
+        }
+        
+        // 扣除信心值
+        if (penalty > 0)
+        {
+            ChangeConfidence(-penalty);
+            Debug.LogFormat("自我怀疑惩罚：-{0}点信心", penalty);
+        }
     }
     
-    // 取消当前动作
+    // 更改信心值
+    private void ChangeConfidence(int amount)
+    {
+        if (!enableConfidenceSystem) return;
+        
+        int previousConfidence = currentConfidence;
+        currentConfidence = Mathf.Clamp(currentConfidence + amount, minConfidence, maxConfidence);
+        
+        // 如果信心值改变，更新信心状态
+        if (previousConfidence != currentConfidence)
+        {
+            UpdateConfidenceState();
+            Debug.LogFormat("信心值从{0}变为{1}, 当前状态：{2}", previousConfidence, currentConfidence, confidenceState);
+        }
+    }
+    
+    // 更新UI显示
+    private void UpdateUI()
+    {
+        // 更新信心状态文本
+        if (confidenceStateText != null && enableConfidenceSystem)
+        {
+            string stateText = "";
+            Color stateColor = Color.white;
+            
+            switch (confidenceState)
+            {
+                case ConfidenceState.Broken:
+                    stateText = "Broken";
+                    stateColor = new Color(1f, 0.2f, 0.2f); // 深红色
+                    break;
+                case ConfidenceState.Unstable:
+                    stateText = "Unstable";
+                    stateColor = new Color(1f, 0.6f, 0.2f); // 橙色
+                    break;
+                case ConfidenceState.Stable:
+                    stateText = "Stable";
+                    stateColor = Color.white; // 白色
+                    break;
+                case ConfidenceState.Confident:
+                    stateText = "Confident";
+                    stateColor = new Color(0.2f, 1f, 0.2f); // 浅绿色
+                    break;
+                case ConfidenceState.Unshakable:
+                    stateText = "Unshakable";
+                    stateColor = new Color(0f, 0.8f, 1f); // 青色
+                    break;
+            }
+            confidenceStateText.text = "State: " + stateText;
+            confidenceStateText.color = stateColor;
+        }
+        else if (confidenceStateText != null)
+        {
+            confidenceStateText.gameObject.SetActive(false);
+        }
+        
+        // 更新回合计数器
+        if (turnCounterText != null)
+        {
+            turnCounterText.text = "Turn: " + currentTurn;
+        }
+        
+        // 更新信心值滑块
+        if (confidenceSlider != null && enableConfidenceSystem)
+        {
+            confidenceSlider.minValue = minConfidence;
+            confidenceSlider.maxValue = maxConfidence;
+            confidenceSlider.value = currentConfidence;
+            
+            // 获取滑块的填充图像组件
+            Image fillImage = confidenceSlider.fillRect.GetComponent<Image>();
+            if (fillImage != null)
+            {
+                // 根据当前信心值设置滑块颜色
+                if (currentConfidence >= 91)
+                {
+                    fillImage.color = new Color(0f, 0.8f, 1f); // 青色 - Unshakable
+                }
+                else if (currentConfidence >= 75)
+                {
+                    fillImage.color = new Color(0.2f, 1f, 0.2f); // 浅绿色 - Confident
+                }
+                else if (currentConfidence >= 50)
+                {
+                    fillImage.color = Color.white; // 白色 - Stable
+                }
+                else if (currentConfidence >= 25)
+                {
+                    fillImage.color = new Color(1f, 0.6f, 0.2f); // 橙色 - Unstable
+                }
+                else
+                {
+                    fillImage.color = new Color(1f, 0.2f, 0.2f); // 深红色 - Broken
+                }
+            }
+        }
+        else if (confidenceSlider != null)
+        {
+            confidenceSlider.gameObject.SetActive(false);
+        }
+
+        // 更新自我怀疑层数文本
+        if (doubtLevelText != null && enableDoubtSystem)
+        {
+            doubtLevelText.text = "Doubt Level: " + doubtLevel;
+            // 根据怀疑层数改变颜色
+            if (doubtLevel == 0)
+                doubtLevelText.color = Color.green;
+            else if (doubtLevel <= 2)
+                doubtLevelText.color = Color.yellow;
+            else
+                doubtLevelText.color = Color.red;
+        }
+        else if (doubtLevelText != null)
+        {
+            doubtLevelText.gameObject.SetActive(false);
+        }
+
+        // 更新疲劳值和成功率显示
+        if (landingMarker != null && landingMarker.activeSelf)
+        {
+            Vector3 markerPosition = landingMarker.transform.position;
+            Vector3 screenPos = Camera.main.WorldToScreenPoint(markerPosition);
+            
+            // 更新疲劳值显示
+            if (fatigueText != null)
+            {
+                float fatigueCost = CalculateFatigueCost(markerPosition);
+                fatigueText.text = string.Format("Fatigue: {0:0}", fatigueCost);
+                fatigueText.gameObject.SetActive(true);
+                fatigueText.transform.position = screenPos + new Vector3(0, 90, 0); // 放在落点上方
+            }
+            
+            // 更新成功率显示
+            if (successRateText != null && actionDifficultyText != null)
+            {
+                float rate = CalculateSuccessRate(currentDifficulty);
+                successRateText.text = string.Format("Success Rate: {0:0}%", rate);
+                actionDifficultyText.text = "Difficulty: " + currentDifficulty.ToString();
+                
+                // 根据成功率改变颜色
+                if (rate >= 80)
+                    successRateText.color = Color.green;
+                else if (rate >= 50)
+                    successRateText.color = Color.yellow;
+                else
+                    successRateText.color = Color.red;
+                
+                successRateText.gameObject.SetActive(true);
+                actionDifficultyText.gameObject.SetActive(true);
+                
+                // 设置文本位置
+                successRateText.transform.position = screenPos + new Vector3(0, 60, 0);
+                actionDifficultyText.transform.position = screenPos + new Vector3(0, 30, 0);
+            }
+        }
+        else
+        {
+            // 隐藏所有与落点相关的UI
+            if (fatigueText != null) fatigueText.gameObject.SetActive(false);
+            if (successRateText != null) successRateText.gameObject.SetActive(false);
+            if (actionDifficultyText != null) actionDifficultyText.gameObject.SetActive(false);
+        }
+    }
+    
+    // 获取当前信心加成
+    private int GetConfidenceBonus()
+    {
+        switch (confidenceState)
+        {
+            case ConfidenceState.Unshakable: return unshakableConfidenceBonus;
+            case ConfidenceState.Confident: return confidentBonus;
+            case ConfidenceState.Stable: return stableBonus;
+            case ConfidenceState.Unstable: return unstableBonus;
+            case ConfidenceState.Broken: return brokenBonus;
+            default: return 0;
+        }
+    }
+    
+    // 结束当前回合
+    private void EndTurn()
+    {
+        Debug.Log("PlayerController: 结束当前回合，准备调用颜色轮换");
+        
+        // 增加回合计数
+        currentTurn++;
+        
+        // 重置回合状态
+        isTurnActive = true;
+        
+        // 轮换区域颜色
+        if (footAreaGenerator != null)
+        {
+            Debug.Log("PlayerController: footAreaGenerator不为空，调用RotateColors方法");
+            footAreaGenerator.RotateColors();
+        }
+        else
+        {
+            Debug.LogError("PlayerController: footAreaGenerator为空，无法轮换颜色");
+        }
+        
+        // 通知游戏管理器回合结束
+        if (gameManager != null)
+        {
+            // TODO: 在GameManager中实现OnTurnEnded方法
+            // gameManager.OnTurnEnded();
+        }
+        
+        Debug.LogFormat("回合 {0} 开始", currentTurn);
+    }
+
+    // 计算动作难度
+    private ActionDifficulty CalculateActionDifficulty(float distance, float maxDistance)
+    {
+        // 计算距离占最大距离的百分比
+        float percentage = (distance / maxDistance) * 100f;
+        
+        // 根据百分比确定难度
+        if (percentage <= 20f)
+            return ActionDifficulty.VeryEasy;
+        else if (percentage <= 40f)
+            return ActionDifficulty.Easy;
+        else if (percentage <= 60f)
+            return ActionDifficulty.Medium;
+        else if (percentage <= 80f)
+            return ActionDifficulty.Hard;
+        else
+            return ActionDifficulty.VeryHard;
+    }
+    
+    // 获取动作难度值
+    private int GetDifficultyValue(ActionDifficulty difficulty)
+    {
+        switch (difficulty)
+        {
+            case ActionDifficulty.VeryEasy: return veryEasyDifficulty;
+            case ActionDifficulty.Easy: return easyDifficulty;
+            case ActionDifficulty.Medium: return mediumDifficulty;
+            case ActionDifficulty.Hard: return hardDifficulty;
+            case ActionDifficulty.VeryHard: return veryHardDifficulty;
+            default: return mediumDifficulty;
+        }
+    }
+    
+    // 获取成功奖励
+    private int GetSuccessReward(ActionDifficulty difficulty)
+    {
+        switch (difficulty)
+        {
+            case ActionDifficulty.VeryEasy: return veryEasySuccessReward;
+            case ActionDifficulty.Easy: return easySuccessReward;
+            case ActionDifficulty.Medium: return mediumSuccessReward;
+            case ActionDifficulty.Hard: return hardSuccessReward;
+            case ActionDifficulty.VeryHard: return veryHardSuccessReward;
+            default: return 0;
+        }
+    }
+    
+    // 执行动作检定
+    private ActionResult PerformActionCheck(ActionDifficulty difficulty)
+    {
+        // 如果禁用了动作检定，始终返回成功
+        if (!enableActionCheck)
+            return ActionResult.Success;
+            
+        // 投掷d20
+        int diceRoll = Random.Range(1, diceSize + 1);
+        
+        // 获取信心加成
+        int bonus = GetConfidenceBonus();
+        
+        // 计算最终检定值
+        int checkValue = diceRoll + bonus;
+        
+        // 获取难度值
+        int difficultyValue = GetDifficultyValue(difficulty);
+        
+        // 记录检定信息
+        Debug.LogFormat("动作检定: d20={0}, 信心加成={1}, 总值={2}, 难度={3}", 
+            diceRoll, bonus, checkValue, difficultyValue);
+        
+        // 大失败（骰子为1）
+        if (diceRoll == 1)
+            return ActionResult.Fumble;
+            
+        // 大成功（骰子为20）
+        if (diceRoll == diceSize)
+            return ActionResult.Critical;
+            
+        // 普通成功
+        if (checkValue >= difficultyValue)
+            return ActionResult.Success;
+            
+        // 失败
+        return ActionResult.Failure;
+    }
+    
+    // 计算动作成功率
+    private float CalculateSuccessRate(ActionDifficulty difficulty)
+    {
+        // 获取难度值
+        int difficultyValue = GetDifficultyValue(difficulty);
+        
+        // 获取信心加成
+        int bonus = GetConfidenceBonus();
+        
+        // 计算需要骰出的最小值
+        int minRoll = difficultyValue - bonus;
+        
+        // 确保最小值在有效范围内
+        minRoll = Mathf.Clamp(minRoll, 1, diceSize);
+        
+        // 计算成功的概率
+        float successRate = (float)(diceSize - minRoll + 1) / diceSize;
+        
+        // 返回百分比形式
+        return successRate * 100f;
+    }
+    
+    // 更新成功率显示
+    private void UpdateSuccessRateDisplay(ActionDifficulty difficulty)
+    {
+        if (successRateText != null && actionDifficultyText != null)
+        {
+            // 计算成功率
+            float rate = CalculateSuccessRate(difficulty);
+            
+            // 更新成功率文本
+            successRateText.text = string.Format("Success Rate: {0:0}%", rate);
+            
+            // 根据成功率改变颜色
+            if (rate >= 80)
+                successRateText.color = Color.green;
+            else if (rate >= 50)
+                successRateText.color = Color.yellow;
+            else
+                successRateText.color = Color.red;
+            
+            // 更新难度文本
+            string difficultyName = "";
+            switch (difficulty)
+            {
+                case ActionDifficulty.VeryEasy: difficultyName = "Very Easy"; break;
+                case ActionDifficulty.Easy: difficultyName = "Easy"; break;
+                case ActionDifficulty.Medium: difficultyName = "Medium"; break;
+                case ActionDifficulty.Hard: difficultyName = "Hard"; break;
+                case ActionDifficulty.VeryHard: difficultyName = "Very Hard"; break;
+            }
+            actionDifficultyText.text = "Difficulty: " + difficultyName;
+
+            // 显示文本
+            successRateText.gameObject.SetActive(true);
+            actionDifficultyText.gameObject.SetActive(true);
+
+            // 更新文本位置
+            if (landingMarker != null && landingMarker.activeSelf)
+            {
+                Vector3 markerPosition = landingMarker.transform.position;
+                
+                // 将世界坐标转换为屏幕坐标
+                Vector3 screenPos = Camera.main.WorldToScreenPoint(markerPosition);
+                
+                // 设置文本位置在落点标记上方
+                successRateText.transform.position = screenPos + new Vector3(0, 60, 0);
+                actionDifficultyText.transform.position = screenPos + new Vector3(0, 30, 0);
+            }
+        }
+    }
+
+    // 隐藏成功率和难度文本
+    private void HideActionUI()
+    {
+        if (successRateText != null)
+        {
+            successRateText.gameObject.SetActive(false);
+        }
+        if (actionDifficultyText != null)
+        {
+            actionDifficultyText.gameObject.SetActive(false);
+        }
+    }
+
     private void CancelCurrentAction()
     {
         // 隐藏路径预览和落点标记
         HidePathPreview();
         HideLandingMarker();
+        // 隐藏动作UI
+        HideActionUI();
+    }
+
+    // 显示转向方向指示器
+    private void ShowTurnDirectionIndicator(Vector3 direction)
+    {
+        // 计算起点和终点
+        Vector3 startPos = transform.position;
+        startPos.y += pathHeightOffset;
+        Vector3 endPos = startPos + direction * turnIndicatorLength;
+        
+        // 设置路径预览线条渲染器的点
+        pathPreview.positionCount = 2;
+        pathPreview.SetPosition(0, startPos);
+        pathPreview.SetPosition(1, endPos);
+        
+        // 设置线条宽度
+        pathPreview.startWidth = turnIndicatorWidth;
+        pathPreview.endWidth = 0f; // 末端为尖头形状
+        
+        // 设置转向指示器材质
+        pathPreview.material = turnIndicatorMaterial != null ? turnIndicatorMaterial : validPathMaterial;
+        
+        // 确保路径可见
+        pathPreview.enabled = true;
+    }
+    
+    // 跳过当前回合
+    private void SkipTurn()
+    {
+        if (!isTurnActive) return;
+        
+        Debug.Log("跳过回合");
+        
+        // 标记为跳过回合
+        turnSkipped = true;
+        
+        // 增加自我怀疑层数，因为跳过回合视为不使用动作
+        IncreaseDoubtLevel();
+        
+        // 应用自我怀疑惩罚
+        ApplyDoubtPenalty();
+        
+        // 结束回合
+        EndTurn();
+    }
+    
+    // 增加自我怀疑层数
+    private void IncreaseDoubtLevel()
+    {
+        if (!enableDoubtSystem) return;
+        
+        doubtLevel = Mathf.Min(doubtLevel + 1, maxDoubtLevel);
+        Debug.LogFormat("自我怀疑层数增加到 {0}", doubtLevel);
+    }
+    
+    // 重置自我怀疑层数
+    private void ResetDoubtLevel()
+    {
+        if (!enableDoubtSystem) return;
+        
+        doubtLevel = 0;
+        Debug.Log("自我怀疑层数重置为 0");
     }
 
     // 计算跳跃路径
@@ -1586,5 +2599,41 @@ public class PlayerController : MonoBehaviour
         }
         
         return jumpPath;
+    }
+
+    // 更新信心状态
+    private void UpdateConfidenceState()
+    {
+        if (!enableConfidenceSystem) return;
+        
+        if (currentConfidence >= 91)
+        {
+            confidenceState = ConfidenceState.Unshakable;
+        }
+        else if (currentConfidence >= 75)
+        {
+            confidenceState = ConfidenceState.Confident;
+        }
+        else if (currentConfidence >= 50)
+        {
+            confidenceState = ConfidenceState.Stable;
+        }
+        else if (currentConfidence >= 25)
+        {
+            confidenceState = ConfidenceState.Unstable;
+        }
+        else
+        {
+            confidenceState = ConfidenceState.Broken;
+        }
+    }
+
+    // 计算疲劳值
+    private int CalculateFatigueCost(Vector3 targetPosition)
+    {
+        float distance = Vector3.Distance(transform.position, targetPosition);
+        // 每2米消耗一次疲劳值
+        int distanceCost = Mathf.FloorToInt(distance / 2f) * Mathf.RoundToInt(fatiguePerMeter);
+        return Mathf.RoundToInt(baseFatigueCost) + distanceCost;
     }
 } 
